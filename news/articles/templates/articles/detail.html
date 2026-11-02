@@ -5,6 +5,7 @@
 {% block content %}
 <p><a href="{% url 'articles:index' %}">← Alle Artikel</a></p>
 <h1>{{ article.title }}</h1>
+{% if article.title_en %}<p class="en">{{ article.title_en }}</p>{% endif %}
 <div class="meta">
   {{ article.feed_title }} · {{ article.published_at|date:"d.m.Y H:i" }} ·
   <a href="{{ article.url }}" rel="noopener noreferrer">Original</a>

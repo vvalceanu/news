@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_q",
     "welcome",
     "articles",
 ]
@@ -51,6 +52,23 @@ MINIFLUX_URL = os.environ.get("MINIFLUX_URL", "").rstrip("/")
 MINIFLUX_API_KEY = os.environ.get("MINIFLUX_API_KEY", "")
 if not MINIFLUX_URL or not MINIFLUX_API_KEY:
     raise ImproperlyConfigured("MINIFLUX_URL and MINIFLUX_API_KEY must be set.")
+
+# Django Q2 worker (`manage.py qcluster`), with our Postgres as the queue. LLM calls must
+# never repeat silently, so a failed task runs once and is acknowledged, not re-queued.
+Q_CLUSTER = {
+    "name": "news",
+    "orm": "default",
+    "workers": 2,
+    "timeout": 600,  # must cover the longest task (deep dives)
+    "retry": 900,  # must be larger than timeout, or Q2 re-delivers tasks that are still running
+    "max_attempts": 1,
+    "ack_failures": True,
+    "catch_up": False,  # after downtime, run a missed schedule once, not once per missed slot
+}
+
+# Anthropic API key for the worker's LLM calls. Not needed by the displayer, so it isn't
+# required at startup; tasks that call Claude refuse to run without it.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

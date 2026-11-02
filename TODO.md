@@ -5,6 +5,9 @@ P0
 
 P1
 - put the displayer under Cludflare to minimize attacks, after we implement Sonnet calls.
+- make Miniflux not accessible from www, by everyone like so. At least some basic http auth.
+- switch to sentry or some other logging
 
 P2
+- what do I do long term, we cannot keep calling Haiku for title translation everytime SRF publishes something, we need to find a different way.
 

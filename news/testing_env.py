@@ -15,3 +15,4 @@ os.environ["MINIFLUX_URL"] = "http://miniflux.test"
 os.environ["MINIFLUX_API_KEY"] = "test-only-api-key"
 os.environ["BASIC_AUTH_USER"] = ""
 os.environ["BASIC_AUTH_PASSWORD"] = ""
+os.environ["ANTHROPIC_API_KEY"] = ""  # tests inject a fake client; never call the real API

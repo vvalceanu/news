@@ -1,0 +1,23 @@
+{% extends "articles/base.html" %}
+
+{% block title %}Noch nicht gespeichert{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'articles:index' %}">← Gespeicherte Artikel</a></p>
+<h1>Noch nicht gespeichert</h1>
+{% if unavailable %}
+<p>Miniflux ist gerade nicht erreichbar.</p>
+{% else %}
+<p class="meta">Artikel aus Miniflux, die noch nicht gespeichert sind, älteste zuerst (höchstens {{ limit }}). Jeder Sweep übernimmt die ersten {{ per_sweep }}.</p>
+<ul>
+  {% for entry in entries %}
+  <li>
+    {% if entry.url %}<a href="{{ entry.url }}" rel="noopener noreferrer">{{ entry.title }}</a>{% else %}{{ entry.title }}{% endif %}
+    <div class="meta">{{ entry.feed_title }} · {{ entry.published_at|date:"d.m.Y H:i" }}</div>
+  </li>
+  {% empty %}
+  <li>Keine neuen Artikel.</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

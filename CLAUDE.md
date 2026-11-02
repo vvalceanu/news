@@ -13,7 +13,7 @@ Local news, rewritten in easy German for language learners. A Python app deploye
 
 The full architecture is in [`README.md`](README.md#architecture). Read it before changing how components interact. In short, there are three Railway services, plus one Postgres server:
 - **Miniflux** fetches RSS feeds. It owns the `railway` database, which nothing else reads. It may be replaced later, so keep it behind a small interface.
-- **Worker** (not built yet) runs [Django Q2](https://django-q2.readthedocs.io/) (`manage.py qcluster`) from the same Django project, with Postgres as the queue. See the README for the required `Q_CLUSTER` settings. It does three jobs:
+- **Worker** runs [Django Q2](https://django-q2.readthedocs.io/) (`manage.py qcluster`) from the same Django project, with Postgres as the queue. See the README for the required `Q_CLUSTER` settings. It does three jobs:
   - a cron sweep that copies new Miniflux entries into our own `Article` table through the Miniflux API;
   - Haiku translation of titles;
   - the on-demand deep dive: German summaries at A2/B1, English translations and per-word vocabulary.
@@ -30,7 +30,7 @@ Deployment:
 
 Layout:
 - `config/`: settings (all from env vars, see `.env.sample`), URLs, `middleware.py` (staging Basic Auth gate).
-- `articles/`: the article list at `/` and each article's raw body at `/articles/<id>/`. Articles come from `sources.py`: views only use the `NewsSource` interface; `MinifluxSource` implements it via the Miniflux REST API (`MINIFLUX_URL`, `MINIFLUX_API_KEY`). The displayer never reads Miniflux's database tables.
+- `articles/`: the `Article` model (our copy of Miniflux entries), the sweep task in `tasks.py` (scheduled as `run_sweep` by migrations `0002`/`0004`, run by hand with `manage.py sweep`), Haiku title translation in `translation.py` (queued after each sweep, run by hand with `manage.py translate_titles`), the article list at `/` and each article's raw body at `/articles/<id>/`. Both pages read only our `Article` table, never Miniflux. `/pending/` lists recent Miniflux entries not stored yet, oldest first (a debugging aid, the only page that calls Miniflux). Only the sweep and `/pending/` talk to Miniflux, through the `NewsSource` interface in `sources.py`; `MinifluxSource` implements it via the Miniflux REST API (`MINIFLUX_URL`, `MINIFLUX_API_KEY`). Nothing reads Miniflux's database tables.
 - `welcome/`: `robots.txt`.
 - Admin is served at `/$DJANGO_ADMIN_URL/`, never `/admin/`.
 - Postgres via `DATABASE_URL`. SQLite is only allowed locally when `DJANGO_DEBUG` is on. On Railway the displayer uses its own `displayer` database on the shared Postgres server; Miniflux owns the `railway` database.
@@ -38,8 +38,9 @@ Layout:
 Commands (run from `news/`):
 - Setup: `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`, then `cp .env.sample .env` and fill it in.
 - Run: `.venv/bin/python manage.py runserver`
+- Worker: `.venv/bin/python manage.py qcluster`
 - Test: `.venv/bin/pytest`. Test env vars live in `testing_env.py`, loaded as an early pytest plugin because pytest-django imports settings before `conftest.py` runs.
 
 ## Status
 
-Proof of concept: the displayer lists the latest Miniflux entries and shows each one's raw body. No translation, simplification or vocabulary yet. The worker doesn't exist yet. Update this file as the structure and commands take shape.
+Proof of concept: every 15 minutes the worker copies the 20 oldest not-yet-stored Miniflux entries from the last 2 days into `Article`; then translates up to 20 titles to English with Haiku, one call per title. The displayer lists the latest 50 with their English titles and shows each one's raw body. No simplification or vocabulary yet. Update this file as the structure and commands take shape.

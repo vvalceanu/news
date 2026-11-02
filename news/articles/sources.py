@@ -1,7 +1,7 @@
 """Where articles come from.
 
-The rest of the displayer only talks to `NewsSource`, so Miniflux can be swapped for
-another feed backend without touching views or templates.
+Only the sweep (`articles.tasks`) talks to `NewsSource`; the views read our own `Article`
+table. Miniflux can be swapped for another feed backend without touching anything else.
 """
 
 from dataclasses import dataclass
@@ -23,18 +23,14 @@ class Article:
     content: str
 
 
-class ArticleNotFound(Exception):
-    pass
-
-
 class SourceUnavailable(Exception):
     """The backend could not be reached or answered with an error."""
 
 
 class NewsSource(Protocol):
-    def latest(self, limit: int) -> list[Article]: ...
-
-    def get(self, article_id: int) -> Article: ...
+    def entries_published_after(self, published_after: datetime, limit: int, offset: int = 0) -> list[Article]:
+        """Entries published after `published_after`, oldest first, `limit` of them starting at `offset`."""
+        ...
 
 
 class MinifluxSource:
@@ -45,21 +41,19 @@ class MinifluxSource:
             base_url, api_key=api_key, timeout=self.TIMEOUT_SECONDS, user_agent="news-displayer"
         )
 
-    def latest(self, limit: int) -> list[Article]:
+    def entries_published_after(self, published_after: datetime, limit: int, offset: int = 0) -> list[Article]:
+        params = {
+            "order": "published_at",
+            "direction": "asc",
+            "limit": limit,
+            "offset": offset,
+            "published_after": int(published_after.timestamp()),
+        }
         try:
-            result = self._client.get_entries(order="published_at", direction="desc", limit=limit)
+            result = self._client.get_entries(**params)
         except (miniflux.ClientError, requests.RequestException) as exc:
             raise SourceUnavailable(type(exc).__name__) from exc
         return [self._to_article(entry) for entry in result.get("entries", [])]
-
-    def get(self, article_id: int) -> Article:
-        try:
-            entry = self._client.get_entry(article_id)
-        except miniflux.ResourceNotFound as exc:
-            raise ArticleNotFound(article_id) from exc
-        except (miniflux.ClientError, requests.RequestException) as exc:
-            raise SourceUnavailable(type(exc).__name__) from exc
-        return self._to_article(entry)
 
     @staticmethod
     def _to_article(entry: dict) -> Article:
