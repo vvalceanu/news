@@ -11,20 +11,20 @@ Local news, rewritten in easy German for language learners. A Python app deploye
 
 ## Architecture
 
-Two components, deployed as separate Railway services that share one **PostgreSQL** database.
+The full architecture is in [`README.md`](README.md#architecture). Read it before changing how components interact. In short, there are three Railway services, plus one Postgres server:
+- **Miniflux** fetches RSS feeds. It owns the `railway` database, which nothing else reads. It may be replaced later, so keep it behind a small interface.
+- **Worker** (not built yet) runs [Django Q2](https://django-q2.readthedocs.io/) (`manage.py qcluster`) from the same Django project, with Postgres as the queue. See the README for the required `Q_CLUSTER` settings. It does three jobs:
+  - a cron sweep that copies new Miniflux entries into our own `Article` table through the Miniflux API;
+  - Haiku translation of titles;
+  - the on-demand deep dive: German summaries at A2/B1, English translations and per-word vocabulary.
+- **Displayer** (Django, in `news/`) lists articles with translated titles. Clicking one (a POST, never a GET) flags it DEEP_DIVE, so the expensive pipeline runs only for articles someone opens, at most once each, under a daily spending cap.
 
-### Worker
-- Aggregates news articles and writes them to Postgres.
-- Source: **Miniflux** (RSS/feed reader) to start with. It may be replaced with something else if it turns out not to be enough, so keep the ingestion layer behind a small interface rather than coupling the rest of the code to Miniflux.
+### Django project (`news/`)
 
-### Displayer (`displayer/`)
-A **Django** app that shows each article with:
-1. **German version**: translated and simplified to CEFR level **A2 / B1**.
-2. **English translation** of the article.
-3. **Vocabulary list**: a definition for each word.
+One Django project holds both the displayer (web) and the worker (`qcluster`), deployed as separate Railway services from the same code.
 
 Deployment:
-- Built with Railpack; config is in `displayer/railpack.json`. Set the Railway service's root directory to `displayer/`.
+- Built with Railpack; config is in `news/railpack.json`. Set the Railway service's root directory to `/news`.
 - The build step runs `collectstatic`, and the start command runs `migrate` and then gunicorn on `$PORT`.
 - The Django project module is `config` (`config.wsgi:application`), referenced in `railpack.json`.
 
@@ -35,7 +35,7 @@ Layout:
 - Admin is served at `/$DJANGO_ADMIN_URL/`, never `/admin/`.
 - Postgres via `DATABASE_URL`. SQLite is only allowed locally when `DJANGO_DEBUG` is on. On Railway the displayer uses its own `displayer` database on the shared Postgres server; Miniflux owns the `railway` database.
 
-Commands (run from `displayer/`):
+Commands (run from `news/`):
 - Setup: `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`, then `cp .env.sample .env` and fill it in.
 - Run: `.venv/bin/python manage.py runserver`
 - Test: `.venv/bin/pytest`. Test env vars live in `testing_env.py`, loaded as an early pytest plugin because pytest-django imports settings before `conftest.py` runs.
