@@ -1,0 +1,15 @@
+{% extends "articles/base.html" %}
+
+{% block content %}
+<h1>Nachrichten</h1>
+<ul>
+  {% for article in articles %}
+  <li>
+    <a href="{% url 'articles:detail' article.id %}">{{ article.title }}</a>
+    <div class="meta">{{ article.feed_title }} · {{ article.published_at|date:"d.m.Y H:i" }}</div>
+  </li>
+  {% empty %}
+  <li>Keine Artikel.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

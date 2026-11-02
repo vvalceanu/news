@@ -30,9 +30,10 @@ Deployment:
 
 Layout:
 - `config/`: settings (all from env vars, see `.env.sample`), URLs, `middleware.py` (staging Basic Auth gate).
-- `welcome/`: the welcome page at `/` and `robots.txt`.
+- `articles/`: the article list at `/` and each article's raw body at `/articles/<id>/`. Articles come from `sources.py`: views only use the `NewsSource` interface; `MinifluxSource` implements it via the Miniflux REST API (`MINIFLUX_URL`, `MINIFLUX_API_KEY`). The displayer never reads Miniflux's database tables.
+- `welcome/`: `robots.txt`.
 - Admin is served at `/$DJANGO_ADMIN_URL/`, never `/admin/`.
-- Postgres via `DATABASE_URL`. SQLite is only allowed locally when `DJANGO_DEBUG` is on.
+- Postgres via `DATABASE_URL`. SQLite is only allowed locally when `DJANGO_DEBUG` is on. On Railway the displayer uses its own `displayer` database on the shared Postgres server; Miniflux owns the `railway` database.
 
 Commands (run from `displayer/`):
 - Setup: `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`, then `cp .env.sample .env` and fill it in.
@@ -41,4 +42,4 @@ Commands (run from `displayer/`):
 
 ## Status
 
-Early stage: the displayer has only a blank welcome page. The worker doesn't exist yet. Update this file as the structure and commands take shape.
+Proof of concept: the displayer lists the latest Miniflux entries and shows each one's raw body. No translation, simplification or vocabulary yet. The worker doesn't exist yet. Update this file as the structure and commands take shape.

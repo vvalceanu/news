@@ -1,0 +1,1 @@
+- do a trivial PoC, commit to main: the displayer main page talks to Miniflux and displays the latest articles. On clicking on each of them, it displays its raw body as it was saved by Miniflux.

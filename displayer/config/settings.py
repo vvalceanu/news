@@ -43,7 +43,14 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "welcome",
+    "articles",
 ]
+
+# Miniflux API (the news source). On Railway, use the Miniflux service's private domain.
+MINIFLUX_URL = os.environ.get("MINIFLUX_URL", "").rstrip("/")
+MINIFLUX_API_KEY = os.environ.get("MINIFLUX_API_KEY", "")
+if not MINIFLUX_URL or not MINIFLUX_API_KEY:
+    raise ImproperlyConfigured("MINIFLUX_URL and MINIFLUX_API_KEY must be set.")
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

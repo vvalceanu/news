@@ -4,16 +4,6 @@ from django.test import Client
 
 
 
-def test_index_renders_welcome(client):
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "Willkommen" in response.content.decode()
-
-
-def test_index_rejects_post(client):
-    assert client.post("/").status_code == 405
-
-
 def test_robots_disallows_admin(client):
     response = client.get("/robots.txt")
     assert response.status_code == 200
@@ -37,17 +27,17 @@ def _auth(user, password):
 
 def test_basic_auth_blocks_without_credentials(settings):
     client = _staging_client(settings)
-    response = client.get("/")
+    response = client.get("/robots.txt")
     assert response.status_code == 401
     assert response["WWW-Authenticate"].startswith("Basic")
 
 
 def test_basic_auth_allows_correct_credentials(settings):
     client = _staging_client(settings)
-    assert client.get("/", **_auth("user", "pass")).status_code == 200
+    assert client.get("/robots.txt", **_auth("user", "pass")).status_code == 200
 
 
 def test_basic_auth_rejects_wrong_and_non_ascii_credentials(settings):
     client = _staging_client(settings)
-    assert client.get("/", **_auth("user", "nope")).status_code == 401
-    assert client.get("/", **_auth("üser", "päss")).status_code == 401
+    assert client.get("/robots.txt", **_auth("user", "nope")).status_code == 401
+    assert client.get("/robots.txt", **_auth("üser", "päss")).status_code == 401
