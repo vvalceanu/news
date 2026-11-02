@@ -1,4 +1,4 @@
-"""Django settings for the displayer. All configuration comes from env vars (see .env.sample)."""
+"""Django settings for the news project (displayer and worker). All configuration comes from env vars (see .env.sample)."""
 
 import os
 from pathlib import Path
