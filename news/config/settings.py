@@ -1,6 +1,7 @@
 """Django settings for the news project (displayer and worker). All configuration comes from env vars (see .env.sample)."""
 
 import os
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import dj_database_url
@@ -70,7 +71,24 @@ Q_CLUSTER = {
 # required at startup; tasks that call Claude refuse to run without it.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
+# Daily spending cap for deep dives, in USD. Once deep dives requested since local midnight have
+# cost this much, new ones are refused until the next day.
+try:
+    DEEP_DIVE_DAILY_CAP_USD = Decimal(os.environ.get("DEEP_DIVE_DAILY_CAP_USD", "").strip() or "2")
+except InvalidOperation:
+    DEEP_DIVE_DAILY_CAP_USD = Decimal("NaN")
+if not DEEP_DIVE_DAILY_CAP_USD.is_finite() or DEEP_DIVE_DAILY_CAP_USD < 0:
+    raise ImproperlyConfigured("DEEP_DIVE_DAILY_CAP_USD must be a number of USD, e.g. 2 or 0.50.")
+
+# Rate limits (django-ratelimit) count hits in the cache, which must be shared by all web
+# processes, so it lives in Postgres (`manage.py createcachetable` runs on deploy). The DB cache
+# increments non-atomically, so a burst of parallel requests can slip a few hits past the limit;
+# that is fine here because the daily cap, not the rate limit, bounds what deep dives cost.
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.db.DatabaseCache", "LOCATION": "django_cache"}}
+RATELIMIT_ENABLE = not DEBUG
+
 MIDDLEWARE = [
+    "config.middleware.RealClientIPMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "config.middleware.StagingBasicAuthMiddleware",

@@ -3,6 +3,11 @@
 
 {% block title %}{{ article.title }}{% endblock %}
 
+{% block head %}{% if article.deep_dive_status == "queued" or article.deep_dive_status == "running" %}
+  {# Reload until the worker has written the summaries. #}
+  <meta http-equiv="refresh" content="10">
+{% endif %}{% endblock %}
+
 {% block content %}
 <p class="back"><a href="{% url 'articles:index' %}">Alle Artikel</a></p>
 <header class="article-head">
@@ -14,6 +19,36 @@
     {% if article.url %}<a href="{{ article.url }}" rel="noopener noreferrer">Original</a>{% endif %}
   </p>
 </header>
-{# Raw body exactly as Miniflux stored it, shown as escaped text, never rendered as HTML. #}
-<pre>{{ article.content }}</pre>
+{% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+
+{% if article.deep_dive_status == "done" %}
+  <section class="summary">
+    <h2>B1</h2>
+    {% if article.summary_b1 %}
+      <div class="summary-de">{{ article.summary_b1|linebreaks }}</div>
+      <div class="summary-en" lang="en">{{ article.summary_b1_en|linebreaks }}</div>
+    {% else %}<p class="meta">Keine Zusammenfassung.</p>{% endif %}
+  </section>
+  <section class="summary">
+    <h2>A2</h2>
+    {% if article.summary_a2 %}
+      <div class="summary-de">{{ article.summary_a2|linebreaks }}</div>
+      <div class="summary-en" lang="en">{{ article.summary_a2_en|linebreaks }}</div>
+    {% else %}<p class="meta">Keine Zusammenfassung.</p>{% endif %}
+  </section>
+{% elif article.deep_dive_status %}
+  <p class="notice">Die Zusammenfassungen werden erstellt. Die Seite lädt sich neu.</p>
+{% else %}
+  {# A POST, never a GET link, so crawlers and link previews can't start paid Claude calls. #}
+  <form method="post" action="{% url 'articles:deep_dive' article.pk %}">
+    {% csrf_token %}
+    <button type="submit">Zusammenfassen (B1 und A2)</button>
+  </form>
+{% endif %}
+
+<details class="raw">
+  <summary>Originaltext (roh)</summary>
+  {# Raw body exactly as Miniflux stored it, shown as escaped text, never rendered as HTML. #}
+  <pre>{{ article.content }}</pre>
+</details>
 {% endblock %}

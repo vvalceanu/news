@@ -6,6 +6,24 @@ from django.conf import settings
 from django.http import HttpResponse
 
 
+class RealClientIPMiddleware:
+    """Use the client IP that Railway's edge proxy sends in X-Real-IP as REMOTE_ADDR.
+
+    Behind the proxy, REMOTE_ADDR is the proxy's own address, so per-IP rate limits would
+    otherwise treat every visitor as one. Railway documents X-Real-IP as set by its edge; when
+    it's absent (local runs), REMOTE_ADDR is left alone.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        real_ip = request.META.get("HTTP_X_REAL_IP", "").strip()
+        if real_ip:
+            request.META["REMOTE_ADDR"] = real_ip
+        return self.get_response(request)
+
+
 class StagingBasicAuthMiddleware:
     """Gate the whole site behind HTTP Basic Auth when BASIC_AUTH_USER and BASIC_AUTH_PASSWORD are set.
 

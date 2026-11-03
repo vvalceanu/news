@@ -15,7 +15,8 @@ See `news/.env.sample` for details and examples.
 | `DATABASE_URL` | yes (prod) | Postgres URL. Optional locally in debug mode, where it falls back to SQLite. |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | staging only | When both are set, the whole site requires HTTP Basic Auth. |
 | `MINIFLUX_URL` / `MINIFLUX_API_KEY` | yes | Miniflux REST API, used by the sweep and `/pending/`. |
-| `ANTHROPIC_API_KEY` | worker only | Claude API key for title translation. The displayer doesn't need it. |
+| `ANTHROPIC_API_KEY` | worker only | Claude API key for title translation and deep dives. The displayer doesn't need it. |
+| `DEEP_DIVE_DAILY_CAP_USD` | no | Daily spending cap for deep dives, in USD. Default `2`. Set it on both the displayer and the worker. |
 
 
 # Architecture
@@ -50,13 +51,16 @@ See `news/.env.sample` for details and examples.
       - Errors that aren't about the title (network, 429, 5xx, bad key) stop the run and leave the titles for the next one.
       - Cost: roughly 200 input and 30 output tokens per title, a few cents a month at current volume. The prompt is too short (<512 tokens) for prompt caching.
 
-   3. **Deep dive.** For articles flagged as `DEEP_DIVE`:
-      - Atomically mark the article as "in process".
-      - Invoke Opus / Sonnet to summarize it at several German levels, e.g. A2 and B1, and save the summaries sentence by sentence. Another Sonnet call then translates the sentences to English. Each sentence of a summary is stored as `{summarized sentence in German at the desired level, translated sentence in English}`.
-      - Parse each sentence into words, and use Haiku to translate each non-trivial word to English. This is saved as part of the summary (an article can have more than one summary).
-      - Mark the article as "processed".
+   3. **Deep dive.** Two German summaries of an article, at B1 and at A2, each with an English translation for reference. It runs only for articles someone asked for, and at most once each.
+      - **States** (`Article.deep_dive_status`): not requested → `queued` (the displayer's POST) → `running` (the worker claims it with a conditional update) → `done`.
+      - **Input:** the stored HTML body is converted to Markdown (`markdownify`). Links, images, scripts and styles are dropped, which saves tokens and leaves less room for prompt injection.
+      - **Calls:** one `claude-sonnet-5-5` call per level (adaptive thinking, effort `medium`, structured output `{german, english}`), so the English always belongs to the German written in the same call. The only difference between the levels is vocabulary. The level descriptions live in `articles/prompts/level_b1.txt` and `level_a2.txt`. Grammar is left natural on purpose.
+      - **Failures:** a level whose call fails (refusal, `max_tokens`, bad JSON, any API error) is stored as `""`, and the other level still runs. The article is `done` whatever happens once a call may have been made, so it is never re-run by accident. `manage.py deep_dive <id> --force` redoes one.
+      - **Daily cap** (`DEEP_DIVE_DAILY_CAP_USD`, default $2): each call's cost is computed from its token counts at list prices and added to `Article.deep_dive_cost_usd`. The displayer refuses new requests once today's spend, plus $0.10 for each queued or running deep dive, reaches the cap. The worker checks again before calling and puts the article back if the cap is already spent. "Today" starts at midnight Europe/Berlin.
+      - **Cost:** roughly $0.03–0.07 per level (an estimate; check `deep_dive_cost_usd` on real articles).
+      - Later: split into sentences and translate the vocabulary with Haiku.
 
 3. **Displayer** renders a list of articles and their translated titles, read from our own tables. When the user clicks on an article, it is marked as `DEEP_DIVE` and a task is scheduled for the worker, so the pipeline only runs for articles the user is interested in.
-   - The `DEEP_DIVE` flag is set by a POST (a button, or a POST the article page sends after it loads), never by a plain GET link, so crawlers and link previews can't trigger LLM calls.
-   - Each article goes through the deep-dive pipeline at most once.
-   - The worker enforces a daily LLM spending cap and stops scheduling deep dives once it's reached.
+   - The deep dive is requested by a POST (the "Zusammenfassen" button, `POST /articles/<id>/deep-dive/`), never by a plain GET link, so crawlers and link previews can't trigger LLM calls. The page reloads every 10 s until the summaries are there.
+   - The POST is rate-limited per client IP (`django-ratelimit`, 20/hour). The counters live in Postgres (`DatabaseCache`, created by `createcachetable` in the start command), because there's no Redis. That cache increments non-atomically, so a burst can slip a few requests past the limit. That's acceptable because the daily cap, not the rate limit, bounds spending.
+   - The client IP comes from Railway's `X-Real-IP` header (`config.middleware.RealClientIPMiddleware`). If Railway ever passes through a client-supplied value, an attacker could dodge the per-IP limit, but not the daily cap.
