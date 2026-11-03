@@ -32,6 +32,6 @@ class Command(BaseCommand):
         if not ran:
             raise CommandError("Not run: today's spending cap is reached.")
         article.refresh_from_db()
-        for level in ("b1", "a2"):
+        for level in ("a2", "b1"):
             self.stdout.write(f"--- {level.upper()} ---\n{getattr(article, f'summary_{level}') or '(failed)'}\n")
         self.stdout.write(f"Total deep dive cost so far: ${article.deep_dive_cost_usd:.4f}")
