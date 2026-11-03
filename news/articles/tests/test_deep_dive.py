@@ -377,6 +377,7 @@ def test_page_shows_summaries_escaped_with_paragraphs(client):
     assert "&lt;b&gt;Zweiter&lt;/b&gt; Absatz." in body
     assert "First paragraph." in body
     assert "Keine Zusammenfassung." in body  # A2 failed
+    assert body.index("<h2>A2</h2>") < body.index("<h2>B1</h2>")  # easier level first
     assert 'http-equiv="refresh"' not in body
 
 
