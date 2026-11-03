@@ -60,13 +60,20 @@ def test_index_rejects_post(client):
 
 
 @pytest.mark.django_db
-def test_detail_shows_raw_body_escaped(client):
-    article = _article()
+def test_detail_shows_the_body_as_sanitized_text_not_html_source(client):
+    article = _article(
+        content=(
+            "<script>alert(1)</script><h2>Kopf</h2><p>Die <a href='https://x.test'>Brücke</a> ist <b>offen</b>.</p>"
+            "<p>[klick](javascript:alert(1)) &lt;img src=x onerror=alert(1)&gt;</p>"
+        )
+    )
     response = client.get(f"/articles/{article.pk}/")
     body = response.content.decode()
     assert response.status_code == 200
-    assert "&lt;script&gt;alert(1)&lt;/script&gt;&lt;p&gt;Die Brücke ist offen.&lt;/p&gt;" in body
-    assert "<script>alert(1)</script>" not in body
+    assert "<h2>Kopf</h2>" in body
+    assert "<p>Die Brücke ist <strong>offen</strong>.</p>" in body
+    for unsafe in ("alert(1)</script>", "javascript:", "<img", "https://x.test", "<pre>"):
+        assert unsafe not in body
 
 
 @pytest.mark.django_db

@@ -77,6 +77,11 @@ body {
   padding: 2.5rem 1.25rem 5rem;
 }
 
+/* The article page needs room for German and English side by side. */
+.page-wide {
+  max-width: 64rem;
+}
+
 a {
   color: inherit;
 }
@@ -260,10 +265,9 @@ pre {
   word-break: break-word;
 }
 
-/* Deep dive: each level's German summary, with the English translation under it as a gloss. */
+/* Deep dive: each level's German summary, with the English translation beside it (under it on phones). */
 .summary {
   margin: 0 0 2.5rem;
-  max-width: 38rem;
 }
 
 .summary h2 {
@@ -274,6 +278,17 @@ pre {
   color: var(--note);
 }
 
+.summary-pair {
+  display: grid;
+  gap: 1.25rem 2.5rem;
+}
+
+@media (min-width: 48rem) {
+  .summary-pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .summary-de p {
   margin: 0 0 1rem;
   font-size: 1.1875rem;
@@ -281,7 +296,6 @@ pre {
 }
 
 .summary-en {
-  margin-top: 1.25rem;
   padding-left: 1rem;
   border-left: 2px solid var(--raw);
 }
@@ -291,7 +305,7 @@ pre {
   font-family: var(--serif);
   font-style: italic;
   font-size: 1rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--gloss);
 }
 
@@ -322,6 +336,20 @@ form button:focus-visible {
   color: var(--note);
   font-size: 0.875rem;
   cursor: pointer;
+}
+
+.original {
+  max-width: 38rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.original h1,
+.original h2,
+.original h3,
+.original h4 {
+  font-size: 1.125rem;
+  margin: 1.5rem 0 0.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
