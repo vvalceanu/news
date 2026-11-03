@@ -9,7 +9,7 @@
   {% block head %}{% endblock %}
 </head>
 <body>
-  <main class="page">
+  <main class="page{% block page_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
 </body>

@@ -11,3 +11,5 @@ django-picklefield==3.4.0
 anthropic==2.4.0
 markdownify==1.2.3
 django-ratelimit==4.1.0
+Markdown==3.11.2
+nh3==0.3.7

@@ -109,6 +109,16 @@ def test_deep_dive_writes_both_levels_with_one_sonnet_call_each():
         assert request["output_config"]["format"]["schema"]["required"] == ["german", "english"]
         assert request["messages"][0]["content"] == "<article>\n# Neue Brücke eröffnet\n\n## Neue Brücke\n\nDie Brücke ist offen.\n</article>"
     assert "Level B1" in b1["system"] and "Level A2" in a2["system"]
+    assert "Swiss Standard German" in b1["system"] and "never ß" in b1["system"]
+
+
+@pytest.mark.django_db
+def test_german_summary_never_keeps_an_eszett():
+    article = _queued()
+
+    tasks.deep_dive(article.pk, FakeAnthropic(lambda level: _reply("Die Strasse ist groß. GROẞ!", "The street is big.")))
+
+    assert _reload(article).summary_b1 == "Die Strasse ist gross. GROSS!"
 
 
 @pytest.mark.parametrize(

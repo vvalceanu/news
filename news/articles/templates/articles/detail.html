@@ -1,7 +1,8 @@
 {% extends "articles/base.html" %}
-{% load article_dates %}
+{% load article_dates article_text %}
 
 {% block title %}{{ article.title }}{% endblock %}
+{% block page_class %} page-wide{% endblock %}
 
 {% block head %}{% if article.deep_dive_status == "queued" or article.deep_dive_status == "running" %}
   {# Reload until the worker has written the summaries. #}
@@ -25,15 +26,19 @@
   <section class="summary">
     <h2>B1</h2>
     {% if article.summary_b1 %}
-      <div class="summary-de">{{ article.summary_b1|linebreaks }}</div>
-      <div class="summary-en" lang="en">{{ article.summary_b1_en|linebreaks }}</div>
+      <div class="summary-pair">
+        <div class="summary-de">{{ article.summary_b1|linebreaks }}</div>
+        <div class="summary-en" lang="en">{{ article.summary_b1_en|linebreaks }}</div>
+      </div>
     {% else %}<p class="meta">Keine Zusammenfassung.</p>{% endif %}
   </section>
   <section class="summary">
     <h2>A2</h2>
     {% if article.summary_a2 %}
-      <div class="summary-de">{{ article.summary_a2|linebreaks }}</div>
-      <div class="summary-en" lang="en">{{ article.summary_a2_en|linebreaks }}</div>
+      <div class="summary-pair">
+        <div class="summary-de">{{ article.summary_a2|linebreaks }}</div>
+        <div class="summary-en" lang="en">{{ article.summary_a2_en|linebreaks }}</div>
+      </div>
     {% else %}<p class="meta">Keine Zusammenfassung.</p>{% endif %}
   </section>
 {% elif article.deep_dive_status %}
@@ -47,8 +52,8 @@
 {% endif %}
 
 <details class="raw">
-  <summary>Originaltext (roh)</summary>
-  {# Raw body exactly as Miniflux stored it, shown as escaped text, never rendered as HTML. #}
-  <pre>{{ article.content }}</pre>
+  <summary>Originaltext</summary>
+  {# The body as the deep dive sends it to Claude (Markdown), rendered and sanitized. #}
+  <div class="original">{{ article.content|article_body }}</div>
 </details>
 {% endblock %}
