@@ -27,7 +27,7 @@
     <h2>B1</h2>
     {% if article.summary_b1 %}
       <div class="summary-pair">
-        <div class="summary-de">{{ article.summary_b1|linebreaks }}</div>
+        <div class="summary-de" lang="de">{{ article.summary_b1|linebreaks }}</div>
         <div class="summary-en" lang="en">{{ article.summary_b1_en|linebreaks }}</div>
       </div>
     {% else %}<p class="meta">Keine Zusammenfassung.</p>{% endif %}
@@ -36,7 +36,7 @@
     <h2>A2</h2>
     {% if article.summary_a2 %}
       <div class="summary-pair">
-        <div class="summary-de">{{ article.summary_a2|linebreaks }}</div>
+        <div class="summary-de" lang="de">{{ article.summary_a2|linebreaks }}</div>
         <div class="summary-en" lang="en">{{ article.summary_a2_en|linebreaks }}</div>
       </div>
     {% else %}<p class="meta">Keine Zusammenfassung.</p>{% endif %}
