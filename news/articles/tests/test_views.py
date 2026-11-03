@@ -52,7 +52,7 @@ def test_index_shows_at_most_the_latest_limit(client, monkeypatch):
 
 @pytest.mark.django_db
 def test_index_handles_empty_list(client):
-    assert "Keine Artikel." in client.get("/").content.decode()
+    assert "No articles." in client.get("/").content.decode()
 
 
 def test_index_rejects_post(client):
@@ -143,7 +143,7 @@ def test_index_shows_total_count_of_stored_articles_beyond_the_list_limit(client
     monkeypatch.setattr(views, "LATEST_LIMIT", 1)
     for i in range(3):
         _article(i)
-    assert "3 Artikel gespeichert" in client.get("/").content.decode()
+    assert "3 articles stored" in client.get("/").content.decode()
 
 
 @pytest.mark.django_db

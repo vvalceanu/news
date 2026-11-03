@@ -10,17 +10,17 @@
 {% endif %}{% endblock %}
 
 {% block content %}
-<p class="back"><a href="{% url 'articles:index' %}">Alle Artikel</a></p>
+<p class="back" lang="en"><a href="{% url 'articles:index' %}">All articles</a></p>
 <header class="article-head">
   <h1 class="de">{{ article.title }}</h1>
   {% if article.title_en %}<p class="en" lang="en">{{ article.title_en }}</p>{% endif %}
   <p class="meta">
     <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|relative_day }}</time>
     {% if article.feed_title %}<span>{{ article.feed_title }}</span>{% endif %}
-    {% if article.url %}<a href="{{ article.url }}" rel="noopener noreferrer">Original</a>{% endif %}
+    {% if article.url %}<a href="{{ article.url }}" rel="noopener noreferrer" lang="en">Original</a>{% endif %}
   </p>
 </header>
-{% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+{% if error %}<p class="notice" role="alert" lang="en">{{ error }}</p>{% endif %}
 
 {% if article.deep_dive_status == "done" %}
   <section class="summary">
@@ -30,7 +30,7 @@
         <div class="summary-de" lang="de">{{ article.summary_a2|linebreaks }}</div>
         <div class="summary-en" lang="en">{{ article.summary_a2_en|linebreaks }}</div>
       </div>
-    {% else %}<p class="meta">Keine Zusammenfassung.</p>{% endif %}
+    {% else %}<p class="meta" lang="en">No summary.</p>{% endif %}
   </section>
   <section class="summary">
     <h2>B1</h2>
@@ -39,20 +39,20 @@
         <div class="summary-de" lang="de">{{ article.summary_b1|linebreaks }}</div>
         <div class="summary-en" lang="en">{{ article.summary_b1_en|linebreaks }}</div>
       </div>
-    {% else %}<p class="meta">Keine Zusammenfassung.</p>{% endif %}
+    {% else %}<p class="meta" lang="en">No summary.</p>{% endif %}
   </section>
 {% elif article.deep_dive_status %}
-  <p class="notice">Die Zusammenfassungen werden erstellt. Die Seite lädt sich neu.</p>
+  <p class="notice" lang="en">Simplifying the article. This page reloads automatically.</p>
 {% else %}
   {# A POST, never a GET link, so crawlers and link previews can't start paid Claude calls. #}
   <form method="post" action="{% url 'articles:deep_dive' article.pk %}">
     {% csrf_token %}
-    <button type="submit">Zusammenfassen (A2 und B1)</button>
+    <button type="submit" lang="en">Show in simplified German</button>
   </form>
 {% endif %}
 
 <details class="raw">
-  <summary>Originaltext</summary>
+  <summary lang="en">Original text</summary>
   {# The body as the deep dive sends it to Claude (Markdown), rendered and sanitized. #}
   <div class="original">{{ article.content|article_body }}</div>
 </details>

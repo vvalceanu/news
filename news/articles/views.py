@@ -38,10 +38,10 @@ def request_deep_dive(request, article_id: int):
     """Queue the deep dive (the only way visitors make the worker spend money), then show the article."""
     article = get_object_or_404(Article, pk=article_id)
     if getattr(request, "limited", False):
-        return _detail_error(request, article, "Zu viele Anfragen. Bitte später noch einmal versuchen.", 429)
+        return _detail_error(request, article, "Too many requests. Please try again later.", 429)
     result = tasks.request_deep_dive(article.pk)
     if result is tasks.DeepDiveRequest.OVER_DAILY_CAP:
-        return _detail_error(request, article, "Das Tageslimit ist erreicht. Morgen geht es weiter.", 503)
+        return _detail_error(request, article, "The daily limit is reached. Please come back tomorrow.", 503)
     return redirect("articles:detail", article_id=article.pk)
 
 
