@@ -1,23 +1,29 @@
 {% extends "articles/base.html" %}
+{% load article_dates %}
 
 {% block title %}Noch nicht gespeichert{% endblock %}
 
 {% block content %}
-<p><a href="{% url 'articles:index' %}">← Gespeicherte Artikel</a></p>
-<h1>Noch nicht gespeichert</h1>
+<p class="back"><a href="{% url 'articles:index' %}">Gespeicherte Artikel</a></p>
+<header class="masthead">
+  <h1>Noch nicht gespeichert</h1>
+</header>
 {% if unavailable %}
-<p>Miniflux ist gerade nicht erreichbar.</p>
+<p class="empty">Miniflux ist gerade nicht erreichbar.</p>
 {% else %}
-<p class="meta">Artikel aus Miniflux, die noch nicht gespeichert sind, älteste zuerst (höchstens {{ limit }}). Jeder Sweep übernimmt die ersten {{ per_sweep }}.</p>
-<ul>
+<p class="intro">Artikel aus Miniflux, die noch nicht gespeichert sind, älteste zuerst (höchstens {{ limit }}). Jeder Sweep übernimmt die ersten {{ per_sweep }}.</p>
+<ol class="stories">
   {% for entry in entries %}
-  <li>
-    {% if entry.url %}<a href="{{ entry.url }}" rel="noopener noreferrer">{{ entry.title }}</a>{% else %}{{ entry.title }}{% endif %}
-    <div class="meta">{{ entry.feed_title }} · {{ entry.published_at|date:"d.m.Y H:i" }}</div>
+  <li class="story">
+    <h2 class="de">{% if entry.url %}<a href="{{ entry.url }}" rel="noopener noreferrer"><span>{{ entry.title }}</span></a>{% else %}<span>{{ entry.title }}</span>{% endif %}</h2>
+    <p class="meta">
+      <time datetime="{{ entry.published_at|date:'c' }}">{{ entry.published_at|relative_day }}</time>
+      {% if entry.feed_title %}<span>{{ entry.feed_title }}</span>{% endif %}
+    </p>
   </li>
   {% empty %}
-  <li>Keine neuen Artikel.</li>
+  <li class="empty">Keine neuen Artikel.</li>
   {% endfor %}
-</ul>
+</ol>
 {% endif %}
 {% endblock %}

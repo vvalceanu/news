@@ -5,3 +5,8 @@ import pytest
 def _force_flags_off(settings):
     settings.DEBUG = False
     settings.SECURE_SSL_REDIRECT = False
+    # The manifest storage needs `collectstatic` output, which tests don't have.
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }

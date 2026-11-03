@@ -1,18 +1,23 @@
 {% extends "articles/base.html" %}
+{% load article_dates %}
 
 {% block content %}
-<h1>Nachrichten</h1>
-<p class="meta">{{ total }} Artikel gespeichert</p>
-<p><a href="{% url 'articles:pending' %}">Noch nicht gespeichert →</a></p>
-<ul>
+<header class="masthead">
+  <h1>Nachrichten</h1>
+  <p class="tally"><span>{{ total }} Artikel gespeichert</span> <a href="{% url 'articles:pending' %}">Noch nicht gespeichert</a></p>
+</header>
+<ol class="stories">
   {% for article in articles %}
-  <li>
-    <a href="{% url 'articles:detail' article.id %}">{{ article.title }}</a>
-    {% if article.title_en %}<div class="en">{{ article.title_en }}</div>{% endif %}
-    <div class="meta">{{ article.feed_title }} · {{ article.published_at|date:"d.m.Y H:i" }}</div>
+  <li class="story">
+    <h2 class="de"><a href="{% url 'articles:detail' article.id %}"><span>{{ article.title }}</span></a></h2>
+    {% if article.title_en %}<p class="en" lang="en">{{ article.title_en }}</p>{% endif %}
+    <p class="meta">
+      <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|relative_day }}</time>
+      {% if article.feed_title %}<span>{{ article.feed_title }}</span>{% endif %}
+    </p>
   </li>
   {% empty %}
-  <li>Keine Artikel.</li>
+  <li class="empty">Keine Artikel.</li>
   {% endfor %}
-</ul>
+</ol>
 {% endblock %}
