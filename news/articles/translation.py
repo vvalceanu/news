@@ -33,10 +33,10 @@ class TranslationFailed(Exception):
     pass
 
 
-def anthropic_client() -> anthropic.Anthropic:
+def anthropic_client(timeout: float = 10.0, max_retries: int = 1) -> anthropic.Anthropic:
     if not settings.ANTHROPIC_API_KEY:
-        raise ImproperlyConfigured("ANTHROPIC_API_KEY must be set to translate titles.")
-    return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=10.0, max_retries=1)
+        raise ImproperlyConfigured("ANTHROPIC_API_KEY must be set to call Claude.")
+    return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=timeout, max_retries=max_retries)
 
 
 def translate_titles(client, limit: int) -> int:

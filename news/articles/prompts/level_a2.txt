@@ -1,0 +1,5 @@
+Level A2: simplify vocabulary only. Grammar stays natural and unrestricted: keep any tense, mood, passive, subordinate clauses and sentence structure a native writer would use.
+Use the most common everyday German words, roughly the scope of the Goethe-Zertifikat A2 word list, and prefer concrete words over abstract ones.
+Replace rare, technical or bureaucratic words, long compound nouns and Amtsdeutsch with a common word or a short paraphrase (e.g. "Ermittlungsverfahren" becomes "die Polizei prüft den Fall").
+Keep proper names of people, places and organisations unchanged.
+Prefer idiomatic, natural German collocations over literal or clumsy simplifications.

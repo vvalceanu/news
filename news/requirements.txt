@@ -9,3 +9,5 @@ requests==2.34.2
 django-q2==1.11.1
 django-picklefield==3.4.0
 anthropic==2.4.0
+markdownify==1.2.3
+django-ratelimit==4.1.0

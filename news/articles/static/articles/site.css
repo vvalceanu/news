@@ -260,6 +260,70 @@ pre {
   word-break: break-word;
 }
 
+/* Deep dive: each level's German summary, with the English translation under it as a gloss. */
+.summary {
+  margin: 0 0 2.5rem;
+  max-width: 38rem;
+}
+
+.summary h2 {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
+  color: var(--note);
+}
+
+.summary-de p {
+  margin: 0 0 1rem;
+  font-size: 1.1875rem;
+  line-height: 1.55;
+}
+
+.summary-en {
+  margin-top: 1.25rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--raw);
+}
+
+.summary-en p {
+  margin: 0 0 0.75rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--gloss);
+}
+
+.notice {
+  margin: 0 0 2rem;
+  color: var(--note);
+}
+
+form button {
+  margin: 0 0 2.5rem;
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--marker-ink);
+  background: var(--marker);
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+form button:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.raw summary {
+  margin-bottom: 1rem;
+  color: var(--note);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .de span {
     transition: none;
