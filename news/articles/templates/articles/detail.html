@@ -1,15 +1,19 @@
 {% extends "articles/base.html" %}
+{% load article_dates %}
 
 {% block title %}{{ article.title }}{% endblock %}
 
 {% block content %}
-<p><a href="{% url 'articles:index' %}">← Alle Artikel</a></p>
-<h1>{{ article.title }}</h1>
-{% if article.title_en %}<p class="en">{{ article.title_en }}</p>{% endif %}
-<div class="meta">
-  {{ article.feed_title }} · {{ article.published_at|date:"d.m.Y H:i" }} ·
-  <a href="{{ article.url }}" rel="noopener noreferrer">Original</a>
-</div>
+<p class="back"><a href="{% url 'articles:index' %}">Alle Artikel</a></p>
+<header class="article-head">
+  <h1 class="de">{{ article.title }}</h1>
+  {% if article.title_en %}<p class="en" lang="en">{{ article.title_en }}</p>{% endif %}
+  <p class="meta">
+    <time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|relative_day }}</time>
+    {% if article.feed_title %}<span>{{ article.feed_title }}</span>{% endif %}
+    {% if article.url %}<a href="{{ article.url }}" rel="noopener noreferrer">Original</a>{% endif %}
+  </p>
+</header>
 {# Raw body exactly as Miniflux stored it, shown as escaped text, never rendered as HTML. #}
 <pre>{{ article.content }}</pre>
 {% endblock %}

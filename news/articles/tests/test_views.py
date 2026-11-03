@@ -145,3 +145,13 @@ def test_pages_show_the_english_title_when_there_is_one(client, page):
     article = _article(title_en="New bridge opened")
     path = "/" if page == "index" else f"/articles/{article.pk}/"
     assert "New bridge opened" in client.get(path).content.decode()
+
+
+@pytest.mark.django_db
+def test_index_shows_relative_publish_dates(client, monkeypatch):
+    monkeypatch.setattr("django.utils.timezone.now", lambda: datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc))
+    _article(1, title="Heute", published_at=datetime(2026, 11, 2, 7, 15, tzinfo=timezone.utc))
+    _article(2, title="Gestern", published_at=PUBLISHED)
+    body = client.get("/").content.decode()
+    assert "Heute, 08:15" in body
+    assert "Gestern, 09:30" in body
