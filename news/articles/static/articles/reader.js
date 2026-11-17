@@ -6,6 +6,10 @@
   "use strict";
 
   const narrow = window.matchMedia("(max-width: 40rem)");
+  // "Ask AI": how often, and how long, to check whether the worker has answered. It can wait
+  // behind a deep dive or two, which take a minute or so each.
+  const POLL_EVERY_MS = 1000;
+  const POLL_FOR_MS = 3 * 60 * 1000;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function el(tag, text, className) {
@@ -114,7 +118,20 @@
     }
 
     // Only the word's position goes to the server, which takes the word and its sentence from
-    // its own copy of the summary.
+    // its own copy of the summary. The worker asks Haiku; meanwhile the reader polls.
+    async function askAndWait(url) {
+      let response = await fetch(url, { method: "POST", headers: { "X-CSRFToken": csrfToken }, credentials: "same-origin" });
+      let result = await response.json();
+      const deadline = Date.now() + POLL_FOR_MS;
+      while (response.ok && result.status === "waiting") {
+        if (Date.now() > deadline) return { error: "This is taking a while. Try again in a minute." };
+        await new Promise((resolve) => setTimeout(resolve, POLL_EVERY_MS));
+        response = await fetch(url, { credentials: "same-origin" });
+        result = await response.json();
+      }
+      return result;
+    }
+
     function addAskButton(details, section) {
       const button = el("button", "Ask AI", "word-ai-ask");
       button.type = "button";
@@ -126,13 +143,8 @@
         status.textContent = "";
         let error = "Couldn't get an answer. Try again.";
         try {
-          const response = await fetch(askUrl.replace(/\/0\/ask\/$/, `/${details.parts[0]}/ask/`), {
-            method: "POST",
-            headers: { "X-CSRFToken": csrfToken },
-            credentials: "same-origin",
-          });
-          const result = await response.json();
-          if (response.ok && result.answer) {
+          const result = await askAndWait(askUrl.replace(/\/0\/ask\/$/, `/${details.parts[0]}/ask/`));
+          if (result.answer) {
             details.answer = result.answer;
             if (section.isConnected) showAnswer(section, result.answer);
             return;

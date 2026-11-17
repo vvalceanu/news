@@ -49,18 +49,25 @@ class WordQuestion(models.Model):
     """Haiku's answer to "what does this word mean in this sentence?", asked from the reader.
 
     One row per word of a summary (the browser sends only the word's position; the word and its
-    sentence come from our stored words). Everyone who opens the word later sees the saved
-    answer. A failed call leaves `answer` empty, so it can be asked again; its cost still counts.
+    sentence come from our stored words). The displayer marks it WAITING and queues the call;
+    the worker answers it (DONE) or gives up (FAILED, can be asked again; its cost still counts).
+    Everyone who opens the word later sees the saved answer.
     """
+
+    class Status(models.TextChoices):
+        WAITING = "waiting", "Waiting for the worker"
+        DONE = "done", "Answered"
+        FAILED = "failed", "Failed"
 
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="word_questions")
     level = models.CharField(max_length=2)  # "a2" or "b1"
     index = models.PositiveIntegerField()  # the word's position in words_a2 / words_b1
     word = models.TextField()  # as asked, e.g. "teilte … mit"
     sentence = models.TextField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.WAITING)
     answer = models.TextField(blank=True, default="")
     # All calls for this word, failed ones included. Counts against the daily cap on the day of
-    # the latest call (`asked_at`).
+    # the latest request (`asked_at`).
     cost_usd = models.DecimalField(max_digits=10, decimal_places=6, default=0)
     asked_at = models.DateTimeField(db_index=True)
 

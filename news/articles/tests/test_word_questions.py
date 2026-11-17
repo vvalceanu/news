@@ -61,7 +61,7 @@ def haiku(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _frozen_now(monkeypatch):
-    monkeypatch.setattr(tasks.timezone, "now", lambda: NOW)
+    monkeypatch.setattr(tasks.timezone, "now", lambda: NOW)  # django.utils.timezone, for every module
 
 
 def _article(**fields):
@@ -106,41 +106,94 @@ def test_ask_fails_without_a_usable_answer_but_reports_the_cost(reply):
     assert failed.value.cost_usd == CALL_COST
 
 
-# The endpoint
+# The endpoint (displayer) and the task (worker)
+
+
+@pytest.fixture
+def queued(monkeypatch):
+    """Questions the displayer queued for the worker, by question id."""
+    calls = []
+    monkeypatch.setattr(word_questions, "async_task", lambda name, *args: calls.append((name, *args)))
+    return calls
+
+
+def _work(queued):
+    """Run what the displayer queued, as the worker would."""
+    while queued:
+        name, question_id = queued.pop(0)
+        assert name == "articles.word_questions.answer_question"
+        word_questions.answer_question(question_id)
+
+
+def _poll(client, article, index, level="b1"):
+    return client.get(f"/articles/{article.pk}/words/{level}/{index}/ask/")
 
 
 @pytest.mark.django_db
-def test_asking_answers_from_our_own_text_and_saves_it(client, haiku):
+def test_asking_queues_the_question_and_the_worker_answers_from_our_own_text(client, haiku, queued):
     article = _article()
 
     response = _ask(client, article, 4)
 
-    assert response.status_code == 200
-    assert response.json() == {"answer": "It means: announced."}
+    assert response.status_code == 202
+    assert response.json() == {"status": "waiting"}
+    assert haiku.requests == []  # the displayer never calls Claude
+    assert _poll(client, article, 4).json() == {"status": "waiting"}
+
+    _work(queued)
+
     [request] = haiku.requests
     assert '"Die Firma teilte die Zahlen mit."' in request["messages"][0]["content"]
+    assert _poll(client, article, 4).json() == {"status": "done", "answer": "It means: announced."}
     question = WordQuestion.objects.get()
-    assert (question.level, question.index, question.word, question.cost_usd) == ("b1", 4, "Zahlen", CALL_COST)
+    assert (question.level, question.index, question.word, question.status, question.cost_usd) == (
+        "b1", 4, "Zahlen", "done", CALL_COST)
     assert question.sentence == "Die Firma teilte die Zahlen mit."
 
 
 @pytest.mark.django_db
-def test_a_saved_answer_is_never_asked_again(client, haiku):
+def test_a_saved_answer_is_never_asked_again(client, haiku, queued):
     article = _article()
     _ask(client, article, 4)
+    _work(queued)
 
     response = _ask(client, article, 4, ip="203.0.113.8")
 
-    assert response.json() == {"answer": "It means: announced."}
+    assert response.status_code == 200
+    assert response.json() == {"status": "done", "answer": "It means: announced."}
+    assert queued == []
     assert len(haiku.requests) == 1
 
 
 @pytest.mark.django_db
-def test_a_particle_asks_about_its_verb(client, haiku):
+def test_a_waiting_question_is_queued_once(client, haiku, queued):
+    article = _article()
+    _ask(client, article, 4)
+    _ask(client, article, 4, ip="203.0.113.8")
+
+    assert len(queued) == 1
+    _work(queued)
+    assert len(haiku.requests) == 1
+
+
+@pytest.mark.django_db
+def test_a_question_the_worker_never_picked_up_can_be_asked_again(client, haiku, queued):
+    article = _article()
+    _ask(client, article, 4)
+    queued.clear()  # lost, e.g. the worker restarted
+    WordQuestion.objects.update(asked_at=NOW - word_questions.STALE_AFTER - timedelta(seconds=1))
+
+    assert _ask(client, article, 4).status_code == 202
+    assert len(queued) == 1
+
+
+@pytest.mark.django_db
+def test_a_particle_asks_about_its_verb(client, haiku, queued):
     article = _article()
 
     _ask(client, article, 5)  # "mit"
-    _ask(client, article, 2)  # "teilte": same question, already answered
+    _work(queued)
+    assert _ask(client, article, 2).json()["status"] == "done"  # "teilte": same question
 
     assert len(haiku.requests) == 1
     assert '"teilte … mit"' in haiku.requests[0]["messages"][0]["content"]
@@ -149,54 +202,69 @@ def test_a_particle_asks_about_its_verb(client, haiku):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("level, index", [("b1", 6), ("b1", 9), ("b1", 99), ("a2", 0), ("c1", 0)])
-def test_only_words_of_a_summary_can_be_asked_about(client, haiku, level, index):
+def test_only_words_of_a_summary_can_be_asked_about(client, queued, level, index):
     # 6 is ".", 9 is "373", 99 doesn't exist, A2 has no words, C1 isn't a level.
-    response = _ask(client, _article(), index, level=level)
-    assert response.status_code == 404
-    assert haiku.requests == []
+    article = _article()
+    assert _ask(client, article, index, level=level).status_code == 404
+    assert _poll(client, article, index, level=level).status_code == 404
+    assert queued == []
 
 
 @pytest.mark.django_db
-def test_an_article_without_a_finished_deep_dive_cant_be_asked_about(client, haiku):
+def test_an_article_without_a_finished_deep_dive_cant_be_asked_about(client, queued):
     article = _article()
     Article.objects.filter(pk=article.pk).update(deep_dive_status="running")
     assert _ask(client, article, 4).status_code == 404
 
 
 @pytest.mark.django_db
-def test_asking_needs_a_post_with_the_csrf_token(haiku):
+def test_asking_needs_a_post_with_the_csrf_token(queued):
     article = _article()
     strict = Client(enforce_csrf_checks=True)
 
-    assert strict.get(f"/articles/{article.pk}/words/b1/4/ask/").status_code == 405
     assert _ask(strict, article, 4).status_code == 403
+    assert Client().put(f"/articles/{article.pk}/words/b1/4/ask/").status_code == 405
 
     page = strict.get(f"/articles/{article.pk}/").content.decode()
     token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', page).group(1)
     response = strict.post(f"/articles/{article.pk}/words/b1/4/ask/", HTTP_X_CSRFTOKEN=token)
-    assert response.status_code == 200
+    assert response.status_code == 202
 
 
 @pytest.mark.django_db
-def test_asking_is_rate_limited_per_client_ip(client, haiku, monkeypatch):
+def test_asking_is_rate_limited_per_client_ip_but_polling_isnt(client, queued, monkeypatch):
     monkeypatch.setattr(views, "ASK_WORD_RATE", "2/h")
     article = _article()
 
-    assert [_ask(client, article, i).status_code for i in (0, 1, 3)] == [200, 200, 429]
-    assert _ask(client, article, 3, ip="203.0.113.8").status_code == 200
+    assert [_ask(client, article, i).status_code for i in (0, 1, 3)] == [202, 202, 429]
+    assert _ask(client, article, 3, ip="203.0.113.8").status_code == 202
+    assert [_poll(client, article, 0).status_code for _ in range(3)] == [200, 200, 200]
 
 
 @pytest.mark.django_db
-def test_asking_stops_at_the_daily_cap_but_saved_answers_still_show(client, haiku, settings):
+def test_asking_stops_at_the_daily_cap_but_saved_answers_still_show(client, haiku, queued, settings):
     settings.DEEP_DIVE_DAILY_CAP_USD = Decimal("0.10")
     article = _article()
-    _ask(client, article, 4)  # costs 0.11, over the cap
+    _ask(client, article, 4)
+    _work(queued)  # costs 0.11, over the cap
 
     refused = _ask(client, article, 1)
     assert refused.status_code == 503
     assert "daily limit" in refused.json()["error"]
-    assert _ask(client, article, 4).status_code == 200  # saved, free
-    assert len(haiku.requests) == 1
+    assert _ask(client, article, 4).json()["status"] == "done"  # saved, free
+    assert queued == []
+
+
+@pytest.mark.django_db
+def test_the_worker_checks_the_cap_again(client, haiku, queued, settings):
+    article = _article()
+    _ask(client, article, 4)
+    settings.DEEP_DIVE_DAILY_CAP_USD = Decimal("0")  # spent meanwhile
+
+    _work(queued)
+
+    assert haiku.requests == []
+    assert _poll(client, article, 4).json() == {"status": "failed", "error": "Couldn't get an answer. Try again."}
 
 
 @pytest.mark.django_db
@@ -214,36 +282,49 @@ def test_questions_count_toward_todays_spending():
     (lambda: _reply(stop_reason="max_tokens"), CALL_COST),
     (lambda: (_ for _ in ()).throw(anthropic.APIConnectionError(request=REQUEST)), Decimal(0)),
 ])
-def test_a_failed_call_can_be_asked_again_and_its_cost_counts(client, monkeypatch, respond, cost):
+def test_a_failed_call_can_be_asked_again_and_its_cost_counts(client, monkeypatch, queued, respond, cost):
     fake = FakeAnthropic(respond)
     monkeypatch.setattr(word_questions, "anthropic_client", lambda **kwargs: fake)
     article = _article()
 
-    response = _ask(client, article, 4)
+    _ask(client, article, 4)
+    _work(queued)
 
-    assert response.status_code == 502
-    assert response.json() == {"error": "Couldn't get an answer. Try again."}
+    assert _poll(client, article, 4).json() == {"status": "failed", "error": "Couldn't get an answer. Try again."}
     question = WordQuestion.objects.get()
-    assert (question.answer, question.cost_usd) == ("", cost)
+    assert (question.status, question.answer, question.cost_usd) == ("failed", "", cost)
 
     fake._respond = lambda: _reply()
-    assert _ask(client, article, 4).json() == {"answer": "It means: announced."}
+    assert _ask(client, article, 4).status_code == 202
+    _work(queued)
+    assert _poll(client, article, 4).json() == {"status": "done", "answer": "It means: announced."}
     assert WordQuestion.objects.get().cost_usd == cost + CALL_COST
 
 
 @pytest.mark.django_db
-def test_without_an_api_key_asking_says_so(client, settings):
+def test_without_an_api_key_the_worker_fails_the_question(client, queued, settings):
     settings.ANTHROPIC_API_KEY = ""
-    response = _ask(client, _article(), 4)
-    assert response.status_code == 503
-    assert WordQuestion.objects.count() == 0
+    article = _article()
+
+    assert _ask(client, article, 4).status_code == 202  # the displayer doesn't need the key
+    _work(queued)
+
+    assert WordQuestion.objects.get().status == "failed"
+
+
+@pytest.mark.django_db
+def test_the_worker_skips_a_question_that_is_no_longer_waiting(haiku):
+    question = WordQuestion.objects.create(article=_article(), level="b1", index=4, word="Zahlen", sentence="",
+                                           status="done", answer="a", asked_at=NOW)
+    assert word_questions.answer_question(question.pk) is False
+    assert haiku.requests == []
 
 
 @pytest.mark.django_db
 def test_the_page_carries_saved_answers_for_the_reader(client):
     article = _article()
     WordQuestion.objects.create(article=article, level="b1", index=2, word="teilte … mit", sentence="",
-                                answer="announced </script><b>", cost_usd=0, asked_at=NOW)
+                                status="done", answer="announced </script><b>", cost_usd=0, asked_at=NOW)
     body = client.get(f"/articles/{article.pk}/").content.decode()
 
     assert f'data-ask-url="/articles/{article.pk}/words/b1/0/ask/"' in body

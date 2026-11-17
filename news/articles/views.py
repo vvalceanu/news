@@ -2,7 +2,7 @@ import logging
 
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
 from . import reading, tasks, word_questions
@@ -65,19 +65,23 @@ def _ask_word_rate(group, request):
     return ASK_WORD_RATE  # looked up per request, so tests can lower it
 
 
-@require_POST
+@require_http_methods(["GET", "POST"])
 @ratelimit(key="ip", rate=_ask_word_rate, method="POST", block=False)
 def ask_word(request, article_id: int, level: str, index: int):
-    """"Ask AI" in the reader: what word `index` of a summary means in its sentence. The browser
-    names the word only by position; word_questions takes the word and sentence from our data."""
+    """"Ask AI" in the reader. POST asks what word `index` of a summary means in its sentence;
+    the worker answers, and the reader polls with GET until it has. The browser names the word
+    only by position; word_questions takes the word and sentence from our data."""
     article = get_object_or_404(Article, pk=article_id)
     if getattr(request, "limited", False):
         return JsonResponse({"error": "Too many questions. Please try again later."}, status=429)
     try:
-        answer = word_questions.answer_for(article, level, index)
+        if request.method == "POST":
+            state = word_questions.request_answer(article, level, index)
+        else:
+            state = word_questions.current_state(article, level, index)
     except word_questions.Refused as exc:
         return JsonResponse({"error": str(exc)}, status=exc.status)
-    return JsonResponse({"answer": answer})
+    return JsonResponse(state, status=202 if state["status"] == "waiting" and request.method == "POST" else 200)
 
 
 def _detail_error(request, article, error: str, status: int):
