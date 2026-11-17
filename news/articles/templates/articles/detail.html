@@ -38,7 +38,7 @@
     {% else %}<p class="meta" lang="en">No summary.</p>{% endif %}
   </section>
 {% elif article.deep_dive_status %}
-  <p class="notice" lang="en">Simplifying the article. This page reloads automatically.</p>
+  <p class="notice notice-working" lang="en"><span class="spinner" aria-hidden="true"></span>Simplifying the article. This page reloads automatically.</p>
 {% else %}
   {# A POST, never a GET link, so crawlers and link previews can't start paid Claude calls. #}
   <form method="post" action="{% url 'articles:deep_dive' article.pk %}">

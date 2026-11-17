@@ -61,7 +61,13 @@
     } else {
       nodes.push(el("p", "Not in the dictionary.", "word-missing"));
     }
+    nodes.push(el("section", null, "word-ai"));
     return nodes;
+  }
+
+  // Haiku's answer is plain text; textContent keeps it inert and CSS keeps its line breaks.
+  function showAnswer(section, answer) {
+    section.replaceChildren(el("h4", "AI answer"), el("p", answer, "word-ai-answer"));
   }
 
   function setUp(reader) {
@@ -70,6 +76,8 @@
     const panel = reader.querySelector(".word-panel");
     const body = panel.querySelector(".word-panel-body");
     const words = german.querySelectorAll(".w");
+    const askUrl = reader.dataset.askUrl;
+    const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]")?.value ?? "";
     let opener = null;
 
     for (const word of words) {
@@ -92,6 +100,9 @@
       word.setAttribute("aria-expanded", "true");
       mark(details.parts);
       body.replaceChildren(...detailsNodes(details, data.entries));
+      const ai = body.querySelector(".word-ai");
+      if (details.answer) showAnswer(ai, details.answer);
+      else addAskButton(details, ai);
       panel.hidden = false;
       panel.scrollTop = 0;
       reader.classList.add("is-open");
@@ -100,6 +111,41 @@
         word.scrollIntoView({ block: "nearest", behavior: reducedMotion.matches ? "auto" : "smooth" });
       }
       body.querySelector(".word-title").focus({ preventScroll: true });
+    }
+
+    // Only the word's position goes to the server, which takes the word and its sentence from
+    // its own copy of the summary.
+    function addAskButton(details, section) {
+      const button = el("button", "Ask AI", "word-ai-ask");
+      button.type = "button";
+      const status = el("p", null, "word-ai-status");
+      status.setAttribute("role", "status");
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        button.textContent = "Asking…";
+        status.textContent = "";
+        let error = "Couldn't get an answer. Try again.";
+        try {
+          const response = await fetch(askUrl.replace(/\/0\/ask\/$/, `/${details.parts[0]}/ask/`), {
+            method: "POST",
+            headers: { "X-CSRFToken": csrfToken },
+            credentials: "same-origin",
+          });
+          const result = await response.json();
+          if (response.ok && result.answer) {
+            details.answer = result.answer;
+            if (section.isConnected) showAnswer(section, result.answer);
+            return;
+          }
+          if (result.error) error = result.error;
+        } catch {
+          // network error or a non-JSON reply: keep the generic message
+        }
+        button.disabled = false;
+        button.textContent = "Ask AI";
+        status.textContent = error;
+      });
+      section.append(button, status);
     }
 
     function close() {

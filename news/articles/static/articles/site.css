@@ -441,6 +441,51 @@ pre {
   margin-top: 0.25rem;
 }
 
+/* "Ask AI": Haiku explains the word in its sentence. Same button as "Show in simplified
+   German"; the answer keeps Haiku's line breaks. */
+.word-ai {
+  clear: both;
+  margin-top: 1.5rem;
+}
+
+.word-ai h4 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.word-ai-ask {
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-weight: 700;
+  color: var(--marker-ink);
+  background: var(--marker);
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.word-ai-ask:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.word-ai-ask:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.word-ai-answer {
+  margin: 0.5rem 0 0;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.word-ai-status:not(:empty) {
+  margin: 0.5rem 0 0;
+  color: var(--gloss);
+}
+
 /* On phones half the width is too narrow for meanings: the details become a sheet over the
    bottom of the screen, and the English stays where it is. */
 @media (max-width: 40rem) {
@@ -548,6 +593,35 @@ pre {
 .notice {
   margin: 0 0 2rem;
   color: var(--note);
+}
+
+/* While the deep dive runs: a small ring turning beside the text. */
+.notice-working {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.spinner {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--raw);
+  border-top-color: var(--gloss);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
 }
 
 form button {

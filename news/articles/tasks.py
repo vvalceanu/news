@@ -13,7 +13,7 @@ from django_q.tasks import async_task
 
 from . import deep_dive as dd
 from . import translation, words
-from .models import Article
+from .models import Article, WordQuestion
 from .sources import NewsSource, get_source
 from .translation import anthropic_client
 
@@ -109,10 +109,12 @@ class DeepDiveRequest(Enum):
 
 
 def spent_today() -> Decimal:
-    """What deep dives requested since local midnight have cost so far."""
+    """What deep dives requested since local midnight, and words asked about since then
+    ("Ask AI"), have cost so far."""
     midnight = timezone.localtime(timezone.now()).replace(hour=0, minute=0, second=0, microsecond=0)
-    total = Article.objects.filter(deep_dive_requested_at__gte=midnight).aggregate(total=Sum("deep_dive_cost_usd"))
-    return total["total"] or Decimal(0)
+    deep_dives = Article.objects.filter(deep_dive_requested_at__gte=midnight).aggregate(total=Sum("deep_dive_cost_usd"))
+    questions = WordQuestion.objects.filter(asked_at__gte=midnight).aggregate(total=Sum("cost_usd"))
+    return (deep_dives["total"] or Decimal(0)) + (questions["total"] or Decimal(0))
 
 
 def request_deep_dive(article_id: int) -> DeepDiveRequest:

@@ -97,9 +97,11 @@ def _entry(entry: Entry) -> dict:
     }
 
 
-def build(words: list[dict]) -> dict:
+def build(words: list[dict], answers: dict[int, str] | None = None) -> dict:
     """{"paragraphs": [[{"i", "text", "ws", "clickable"}]], "rows": lookup rows (debug table),
-    "details": {"words": {i: …}, "entries": {id: …}}} for one summary."""
+    "details": {"words": {i: …}, "entries": {id: …}}} for one summary. `answers` are the saved
+    "Ask AI" answers by word position, shown without asking again."""
+    answers = answers or {}
     rows = lookup.annotate(words)
     particles: dict[int, list[int]] = {}
     for i, word in enumerate(words):
@@ -129,6 +131,7 @@ def build(words: list[dict]) -> dict:
             "separable": len(parts) > 1,
             "grammar": grammar(word.get("morph", "")),
             "matches": matches,
+            "answer": answers.get(i, ""),
         }
     return {
         "paragraphs": _paragraphs(words),
