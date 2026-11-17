@@ -1,16 +1,19 @@
-{# Debug view of one summary's words (articles/words_subprocess.py). Every token, so the text can be read down the table; numbers and punctuation have no lemma (nothing to look up). # is the token's index, which `verb` points to. #}
-{% if words %}
+{# Debug view of one summary: the text as Claude wrote it (to check the clickable rendering against), and its words (articles/words_subprocess.py) with their dictionary matches (dictionary/lookup.py). Every token, so the text can be read down the table; numbers and punctuation have no lemma (nothing to look up). # is the token's index, which `verb` points to. #}
 <details class="words-debug">
-  <summary lang="en">Words (debug)</summary>
+  <summary lang="en">Debug</summary>
+  <h3 lang="en">Summary as written</h3>
+  <div class="words-debug-text" lang="de">{{ german|linebreaks }}</div>
+  {% if rows %}
+  <h3 lang="en">Words</h3>
   <div class="words-debug-scroll">
     <table>
       <thead lang="en">
-        <tr><th>#</th><th>word</th><th>lemma</th><th>known</th><th>verb</th><th>pos</th><th>tag</th><th>dep</th><th>morph</th></tr>
+        <tr><th>#</th><th>word</th><th>lemma</th><th>known</th><th>verb</th><th>pos</th><th>tag</th><th>dep</th><th>morph</th><th>dictionary</th></tr>
       </thead>
       <tbody>
-        {% for word in words %}
+        {% for row in rows %}{% with word=row.word %}
         <tr{% if word.lemma and not word.known %} class="unknown"{% endif %}>
-          <td>{{ forloop.counter0 }}</td>
+          <td>{{ row.i }}</td>
           <td lang="de">{{ word.text }}</td>
           <td lang="de">{{ word.lemma }}</td>
           <td>{% if word.lemma %}{{ word.known|yesno:"yes,no" }}{% endif %}</td>
@@ -19,10 +22,24 @@
           <td>{{ word.tag }}</td>
           <td>{{ word.dep }}</td>
           <td>{{ word.morph }}</td>
+          {% if row.see is not None %}
+            <td lang="en">see #{{ row.see }}</td>
+          {% elif row.matches is None %}
+            <td></td>
+          {% elif not row.matches %}
+            <td class="no-entry" lang="en">not in the dictionary</td>
+          {% else %}
+            <td class="words-debug-dict">{% for match in row.matches %}{% for entry in match.entries %}
+              <div class="entry">
+                <span lang="de">{{ entry.word }}</span> <span lang="en">{{ entry.pos }}{% if entry.gender %} {{ entry.gender }}{% endif %}{% if entry.plural %}, pl. <span lang="de">{{ entry.plural }}</span>{% endif %}{% if entry.swiss %}, Swiss{% endif %}{% if not match.fits %}, other word class{% endif %}{% if match.via %} ({{ match.via }}){% endif %}</span>
+                <ol lang="en">{% for meaning in entry.meanings|slice:":5" %}<li>{{ meaning.gloss|truncatechars:100 }}</li>{% endfor %}</ol>{% if entry.meanings|length > 5 %}<div lang="en">+{{ entry.meanings|length|add:"-5" }} more</div>{% endif %}
+              </div>
+            {% endfor %}{% endfor %}</td>
+          {% endif %}
         </tr>
-        {% endfor %}
+        {% endwith %}{% endfor %}
       </tbody>
     </table>
   </div>
+  {% endif %}
 </details>
-{% endif %}

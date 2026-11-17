@@ -172,7 +172,8 @@ def test_page_shows_the_words_debug_table_escaped(client):
     )
     body = client.get(f"/articles/{article.pk}/").content.decode()
 
-    assert body.count('class="words-debug"') == 1  # A2 has no words yet: no table
+    assert body.count('class="words-debug"') == 2  # both show the summary as written
+    assert body.count("<table>") == 1  # A2 has no words yet: no table
     assert "&lt;b&gt;teilte&lt;/b&gt;" in body
     assert "<td>→ 0</td>" in body
     assert "<td>Mood=Ind</td>" in body

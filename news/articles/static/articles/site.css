@@ -290,7 +290,7 @@ pre {
     gap: 0 1rem;
   }
 
-  .summary-en {
+  .reader-side {
     padding-left: 0.75rem;
   }
 
@@ -308,13 +308,163 @@ pre {
   line-height: 1.6;
 }
 
-.summary-en {
+.reader-side {
   padding-left: 1rem;
   border-left: 2px solid var(--raw);
 }
 
 .summary-en p {
   color: var(--gloss);
+}
+
+/* The reader: every German word is clickable, but reads as plain running text. A word lights
+   up faintly under the pointer; the chosen word, and both halves of a split verb
+   ("teilte … mit"), get the highlighter. box-shadow widens the mark without moving text. */
+.summary-de .w {
+  cursor: pointer;
+  border-radius: 2px;
+  scroll-margin: 4rem 0;
+}
+
+@media (hover: hover) {
+  .summary-de .w:hover {
+    background: var(--raw);
+    box-shadow: 0 0 0 2px var(--raw);
+  }
+}
+
+.summary-de .w:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.summary-de .w.is-selected {
+  background: var(--marker);
+  box-shadow: 0 0 0 2px var(--marker);
+  color: var(--marker-ink);
+}
+
+/* While a word is open, its details take the English column's place, and stay in view while
+   the German scrolls past. */
+.reader.is-open .summary-en {
+  display: none;
+}
+
+.word-panel {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  hyphens: manual; /* the German column hyphenates; the English meanings needn't */
+}
+
+.word-panel[hidden] {
+  display: none;
+}
+
+.word-panel-close {
+  float: right;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0 0 0.5rem 0.75rem;
+  padding: 0;
+  font: inherit;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--raw);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.word-panel-close:hover {
+  background: var(--marker);
+  color: var(--marker-ink);
+}
+
+.word-panel-close:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.word-title {
+  margin: 0.25rem 0 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.word-title:focus {
+  outline: none;
+}
+
+.word-lemma,
+.word-grammar,
+.word-missing {
+  margin: 0 0 0.25rem;
+  color: var(--gloss);
+}
+
+.word-lemma span {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.word-entry {
+  clear: both;
+  margin-top: 1.25rem;
+}
+
+.word-entry h4 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.word-facts,
+.word-via {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--note);
+}
+
+.word-meanings {
+  margin: 0.5rem 0 0;
+  padding-left: 1.5rem;
+  line-height: 1.45;
+}
+
+.word-meanings li + li {
+  margin-top: 0.25rem;
+}
+
+/* On phones half the width is too narrow for meanings: the details become a sheet over the
+   bottom of the screen, and the English stays where it is. */
+@media (max-width: 40rem) {
+  .reader.is-open .summary-en {
+    display: block;
+  }
+
+  .word-panel {
+    position: fixed;
+    z-index: 10;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-height: 55vh;
+    padding: 1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+    background: var(--paper);
+    border-top: 2px solid var(--ink);
+    box-shadow: 0 -0.5rem 1.5rem rgb(0 0 0 / 0.18);
+  }
+
+  .summary-de .w {
+    scroll-margin: 4rem 0 calc(55vh + 1rem);
+  }
 }
 
 /* Debug table of a summary's words (lemmas, grammar). Scrolls sideways on narrow screens. */
@@ -326,6 +476,17 @@ pre {
 .words-debug summary {
   cursor: pointer;
   font-size: 0.875rem;
+}
+
+.words-debug h3 {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.words-debug-text {
+  max-width: 38rem;
+  color: var(--ink);
 }
 
 .words-debug-scroll {
@@ -356,6 +517,20 @@ pre {
 .words-debug tr.unknown td:nth-child(3) {
   background: var(--marker);
   color: var(--marker-ink);
+}
+.words-debug-dict {
+  white-space: normal;
+  min-width: 24rem;
+}
+.words-debug-dict .entry + .entry {
+  margin-top: 0.4rem;
+}
+.words-debug-dict ol {
+  margin: 0;
+  padding-left: 1.4rem;
+}
+.words-debug td.no-entry {
+  font-style: italic;
 }
 
 .site-footer {

@@ -1,5 +1,5 @@
 {% extends "articles/base.html" %}
-{% load article_dates article_text %}
+{% load article_dates article_text static %}
 
 {% block title %}{{ article.title }}{% endblock %}
 {% block page_class %} page-wide{% endblock %}
@@ -7,6 +7,8 @@
 {% block head %}{% if article.deep_dive_status == "queued" or article.deep_dive_status == "running" %}
   {# Reload until the worker has written the summaries. #}
   <meta http-equiv="refresh" content="10">
+{% elif article.deep_dive_status == "done" %}
+  <script src="{% static 'articles/reader.js' %}" defer></script>
 {% endif %}{% endblock %}
 
 {% block content %}
@@ -26,21 +28,13 @@
   <section class="summary">
     <h2>A2</h2>
     {% if article.summary_a2 %}
-      <div class="summary-pair">
-        <div class="summary-de" lang="de">{{ article.summary_a2|linebreaks }}</div>
-        <div class="summary-en" lang="en">{{ article.summary_a2_en|linebreaks }}</div>
-      </div>
-      {% include "articles/_words_debug.html" with words=article.words_a2 %}
+      {% include "articles/_reader.html" with reader=readers.a2 level="a2" german=article.summary_a2 english=article.summary_a2_en %}
     {% else %}<p class="meta" lang="en">No summary.</p>{% endif %}
   </section>
   <section class="summary">
     <h2>B1</h2>
     {% if article.summary_b1 %}
-      <div class="summary-pair">
-        <div class="summary-de" lang="de">{{ article.summary_b1|linebreaks }}</div>
-        <div class="summary-en" lang="en">{{ article.summary_b1_en|linebreaks }}</div>
-      </div>
-      {% include "articles/_words_debug.html" with words=article.words_b1 %}
+      {% include "articles/_reader.html" with reader=readers.b1 level="b1" german=article.summary_b1 english=article.summary_b1_en %}
     {% else %}<p class="meta" lang="en">No summary.</p>{% endif %}
   </section>
 {% elif article.deep_dive_status %}

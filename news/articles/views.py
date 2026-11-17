@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from . import tasks
+from . import reading, tasks
 from .models import Article
 from .sources import SourceUnavailable, get_source
 
@@ -25,7 +25,13 @@ def index(request):
 @require_GET
 def detail(request, article_id: int):
     article = get_object_or_404(Article, pk=article_id)
-    return render(request, "articles/detail.html", {"article": article})
+    return render(request, "articles/detail.html", _detail_context(article))
+
+
+def _detail_context(article: Article, **extra) -> dict:
+    # Each summary as clickable words, with each word's details (grammar, dictionary).
+    readers = {level: reading.build(getattr(article, f"words_{level}")) for level in ("a2", "b1")}
+    return {"article": article, "readers": readers, **extra}
 
 
 def _deep_dive_rate(group, request):
@@ -46,7 +52,7 @@ def request_deep_dive(request, article_id: int):
 
 
 def _detail_error(request, article, error: str, status: int):
-    return render(request, "articles/detail.html", {"article": article, "error": error}, status=status)
+    return render(request, "articles/detail.html", _detail_context(article, error=error), status=status)
 
 
 @require_GET
