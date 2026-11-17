@@ -49,6 +49,19 @@ def _frozen_now(monkeypatch):
     monkeypatch.setattr(tasks.timezone, "now", lambda: NOW)
 
 
+@pytest.fixture(autouse=True)
+def analyzed(monkeypatch):
+    """Stands in for the word analysis subprocess (tested in test_words.py). Records the texts."""
+    calls = []
+
+    def analyze(texts):
+        calls.append(texts)
+        return {level: [{"text": text, "ws": "", "lemma": f"lemma {level}"}] for level, text in texts.items()}
+
+    monkeypatch.setattr(tasks.words, "analyze", analyze)
+    return calls
+
+
 @pytest.fixture
 def queued_tasks(monkeypatch):
     queued = []
@@ -110,6 +123,45 @@ def test_deep_dive_writes_both_levels_with_one_sonnet_call_each():
         assert request["messages"][0]["content"] == "<article>\n# Neue Brücke eröffnet\n\n## Neue Brücke\n\nDie Brücke ist offen.\n</article>"
     assert "Level B1" in b1["system"] and "Level A2" in a2["system"]
     assert "Swiss Standard German" in b1["system"] and "never ß" in b1["system"]
+
+
+@pytest.mark.django_db
+def test_deep_dive_then_analyzes_the_words_of_both_summaries(analyzed):
+    article = _queued()
+
+    tasks.deep_dive(article.pk, FakeAnthropic())
+
+    assert analyzed == [{"b1": "Zusammenfassung B1", "a2": "Zusammenfassung A2"}]
+    article = _reload(article)
+    assert article.words_b1 == [{"text": "Zusammenfassung B1", "ws": "", "lemma": "lemma b1"}]
+    assert article.words_a2 == [{"text": "Zusammenfassung A2", "ws": "", "lemma": "lemma a2"}]
+
+
+@pytest.mark.django_db
+def test_a_failed_word_analysis_leaves_the_words_empty_and_the_article_done(monkeypatch):
+    def fail(texts):
+        raise tasks.words.AnalysisFailed("exit code 1: boom")
+
+    monkeypatch.setattr(tasks.words, "analyze", fail)
+    article = _queued()
+
+    assert tasks.deep_dive(article.pk, FakeAnthropic()) is True
+
+    article = _reload(article)
+    assert article.deep_dive_status == "done"
+    assert article.summary_b1 == "Zusammenfassung B1"
+    assert (article.words_b1, article.words_a2) == ([], [])
+
+
+@pytest.mark.django_db
+def test_word_analysis_skips_failed_levels_and_articles_without_summaries(analyzed):
+    article = _queued()
+    tasks.deep_dive(article.pk, FakeAnthropic(lambda level: _reply(stop_reason="refusal") if level == "A2" else _reply()))
+
+    assert analyzed == [{"b1": "Die Brücke ist offen."}]
+    assert _reload(article).words_a2 == []
+    assert tasks.analyze_words(_article(miniflux_id=2).pk) is False
+    assert len(analyzed) == 1
 
 
 @pytest.mark.django_db

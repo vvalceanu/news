@@ -12,7 +12,7 @@ from django.utils import timezone
 from django_q.tasks import async_task
 
 from . import deep_dive as dd
-from . import translation
+from . import translation, words
 from .models import Article
 from .sources import NewsSource, get_source
 from .translation import anthropic_client
@@ -30,7 +30,8 @@ MAX_NEW_PER_SWEEP = 20
 TRANSLATE_PER_RUN = 20
 PAGE_SIZE = 100
 MAX_PAGES = 20  # safety stop on how far one sweep pages through Miniflux
-# Deep dive: two Sonnet calls in a row must fit in Q_CLUSTER's timeout (600 s), retries included.
+# Deep dive: two Sonnet calls in a row, plus the word analysis (words.TIMEOUT_SECONDS), must fit
+# in Q_CLUSTER's timeout (600 s), retries included.
 DEEP_DIVE_TIMEOUT_SECONDS = 120.0
 # Rough cost of one deep dive. Queued and running ones count this much against the daily cap
 # until their real cost is known, so a burst of clicks can't overshoot it by much.
@@ -155,6 +156,7 @@ def deep_dive(article_id: int, client=None) -> bool:
         markdown = dd.article_markdown(article.content)
         for level in dd.LEVELS:
             _summarize_level(client, article, markdown, level)
+        analyze_words(article_id)
     finally:
         Article.objects.filter(pk=article_id).update(deep_dive_status=Article.DeepDive.DONE)
     return True
@@ -179,6 +181,26 @@ def _summarize_level(client, article, markdown: str, level: str):
         **{f"summary_{level.lower()}": german, f"summary_{level.lower()}_en": english},
         deep_dive_cost_usd=F("deep_dive_cost_usd") + cost,
     )
+
+
+def analyze_words(article_id: int) -> bool:
+    """Split the article's German summaries into words with lemmas. Returns whether it ran.
+
+    Free (no API calls), so `manage.py analyze_words` can redo it any time. A failure leaves
+    the words empty and is only logged: the summaries are still shown.
+    """
+    article = Article.objects.get(pk=article_id)
+    texts = {level: getattr(article, f"summary_{level}") for level in ("b1", "a2")}
+    texts = {level: text for level, text in texts.items() if text}
+    if not texts:
+        return False
+    try:
+        analyzed = words.analyze(texts)
+    except words.AnalysisFailed as exc:
+        logger.warning("Word analysis failed for article %s: %s", article_id, exc)
+        return False
+    Article.objects.filter(pk=article_id).update(**{f"words_{level}": analyzed.get(level, []) for level in ("b1", "a2")})
+    return True
 
 
 def _release(article_id: int):

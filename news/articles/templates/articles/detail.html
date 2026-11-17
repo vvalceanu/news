@@ -30,6 +30,7 @@
         <div class="summary-de" lang="de">{{ article.summary_a2|linebreaks }}</div>
         <div class="summary-en" lang="en">{{ article.summary_a2_en|linebreaks }}</div>
       </div>
+      {% include "articles/_words_debug.html" with words=article.words_a2 %}
     {% else %}<p class="meta" lang="en">No summary.</p>{% endif %}
   </section>
   <section class="summary">
@@ -39,6 +40,7 @@
         <div class="summary-de" lang="de">{{ article.summary_b1|linebreaks }}</div>
         <div class="summary-en" lang="en">{{ article.summary_b1_en|linebreaks }}</div>
       </div>
+      {% include "articles/_words_debug.html" with words=article.words_b1 %}
     {% else %}<p class="meta" lang="en">No summary.</p>{% endif %}
   </section>
 {% elif article.deep_dive_status %}

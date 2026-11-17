@@ -1,0 +1,28 @@
+{# Debug view of one summary's words (articles/words_subprocess.py). Every token, so the text can be read down the table; numbers and punctuation have no lemma (nothing to look up). # is the token's index, which `verb` points to. #}
+{% if words %}
+<details class="words-debug">
+  <summary lang="en">Words (debug)</summary>
+  <div class="words-debug-scroll">
+    <table>
+      <thead lang="en">
+        <tr><th>#</th><th>word</th><th>lemma</th><th>known</th><th>verb</th><th>pos</th><th>tag</th><th>dep</th><th>morph</th></tr>
+      </thead>
+      <tbody>
+        {% for word in words %}
+        <tr{% if word.lemma and not word.known %} class="unknown"{% endif %}>
+          <td>{{ forloop.counter0 }}</td>
+          <td lang="de">{{ word.text }}</td>
+          <td lang="de">{{ word.lemma }}</td>
+          <td>{% if word.lemma %}{{ word.known|yesno:"yes,no" }}{% endif %}</td>
+          <td>{% if word.verb is not None %}→ {{ word.verb }}{% endif %}</td>
+          <td>{{ word.pos }}</td>
+          <td>{{ word.tag }}</td>
+          <td>{{ word.dep }}</td>
+          <td>{{ word.morph }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+{% endif %}

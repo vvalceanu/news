@@ -13,3 +13,7 @@ markdownify==1.2.3
 django-ratelimit==4.1.0
 Markdown==3.11.2
 nh3==0.3.7
+# Word analysis for the deep dive, run in a subprocess (articles/words_subprocess.py).
+simplemma==2.0.0
+spacy==3.8.18
+de_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.8.0/de_core_news_sm-3.8.0-py3-none-any.whl#sha256=fec69fec52b1780f2d269d5af7582a5e28028738bd3190532459aeb473bfa3e7

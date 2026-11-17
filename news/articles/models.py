@@ -33,6 +33,10 @@ class Article(models.Model):
     summary_b1_en = models.TextField(blank=True, default="")
     summary_a2 = models.TextField(blank=True, default="")
     summary_a2_en = models.TextField(blank=True, default="")
+    # Each German summary as a list of words (spaCy tokens with lemmas, see
+    # articles/words_subprocess.py). Empty until analyzed, or if the analysis failed.
+    words_b1 = models.JSONField(default=list, blank=True)
+    words_a2 = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["-published_at"]
