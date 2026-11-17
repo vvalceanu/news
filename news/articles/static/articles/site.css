@@ -358,6 +358,18 @@ pre {
   color: var(--marker-ink);
 }
 
+.site-footer {
+  margin-top: 4rem;
+  color: var(--note);
+  font-size: 0.8125rem;
+}
+
+.site-footer a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
 .notice {
   margin: 0 0 2rem;
   color: var(--note);

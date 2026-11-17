@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django_q",
     "welcome",
     "articles",
+    "dictionary",
 ]
 
 # Miniflux API (the news source). On Railway, use the Miniflux service's private domain.

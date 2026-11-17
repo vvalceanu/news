@@ -11,6 +11,12 @@
 <body>
   <main class="page{% block page_class %}{% endblock %}">
     {% block content %}{% endblock %}
+    {# CC BY-SA asks for the source, the license, and a note that we changed the data. #}
+    <footer class="site-footer" lang="en">
+      Dictionary data from <a href="https://en.wiktionary.org/">English Wiktionary</a> contributors,
+      <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>,
+      extracted by <a href="https://kaikki.org/">kaikki.org</a> and shortened.
+    </footer>
   </main>
 </body>
 </html>

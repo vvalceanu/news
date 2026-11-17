@@ -64,7 +64,17 @@ See `news/.env.sample` for details and examples.
         - It runs as a subprocess (`articles/words.py` starts `articles/words_subprocess.py`), because spaCy and simplemma's dictionary take about 400 MB and Python wouldn't hand that back to the system. The process exits after about a second, so Railway bills that memory for seconds, not all day. The child doesn't import Django and gets no env vars, so it sees no secrets and no database. It is killed after 60 s.
         - A failure leaves the words empty and is only logged. `manage.py analyze_words <id> [<id> ...]` (re)analyzes articles that already have summaries.
         - The article page shows the words in a debug table under each summary for now.
-      - Later: render the words nicely, and explain them (dictionary lookup, or Haiku for unknown words and context).
+      - **Dictionary** (the `dictionary` app): the German entries of English Wiktionary, as extracted by [wiktextract](https://github.com/tatuylonen/wiktextract) and published on [kaikki.org](https://kaikki.org/). The license is CC BY-SA 4.0, so every page's footer credits it.
+        - `dictionary.Entry`: one row per word, word class and origin (`Bank` the bench and `Bank` the bank are two rows). It holds the meanings in Wiktionary's order, main meaning first, plus gender and plural for nouns, and a `swiss` flag (Swiss words like `Velo` are German entries tagged `Switzerland`). About 95,000 rows.
+        - `dictionary.Redirect`: words whose entry only points elsewhere. These are inflected forms (`Stellen` → `Stelle`), contractions (`im` → `in`) and the Swiss ss spellings (`Strasse` → `Straße`). About 280,000 rows.
+        - `manage.py fetch_wiktionary ../data/wiktionary-de.jsonl.gz` streams kaikki.org's full dump (about 3 GB, all languages; the German-only file there is deprecated) and keeps the German entries, about 70 MB gzipped. It takes about 4 minutes and about 150 MB of memory. The data is updated weekly. `data/` is in git, but its `.gitignore` ignores everything else in it, so the file is never committed.
+        - `manage.py import_wiktionary <file>` replaces both tables in one transaction. That takes about 12 s and 200 MB, and a bad file leaves the old dictionary in place.
+        - **On Railway:** deploy first, so that the displayer's `migrate` creates the tables. Then run both commands inside the worker. The download is free inbound traffic, the database is reached over the private network, and nothing has to be uploaded or exposed:
+          ```sh
+          railway ssh -s <worker service> -- sh -c 'python manage.py fetch_wiktionary /tmp/de.jsonl.gz && python manage.py import_wiktionary /tmp/de.jsonl.gz && rm /tmp/de.jsonl.gz'
+          ```
+          This adds about 150 MB to the worker's memory for the 4 minutes of the download, then about 200 MB for the 12 s import. Rerun it whenever a fresher dictionary is wanted.
+        - Not yet: looking the words up. Later: render the words nicely, with their dictionary meanings, and ask Haiku about words the dictionary doesn't have.
 
 3. **Displayer** renders a list of articles and their translated titles, read from our own tables. When the user clicks on an article, it is marked as `DEEP_DIVE` and a task is scheduled for the worker, so the pipeline only runs for articles the user is interested in.
    - The deep dive is requested by a POST (the "Zusammenfassen" button, `POST /articles/<id>/deep-dive/`), never by a plain GET link, so crawlers and link previews can't trigger LLM calls. The page reloads every 10 s until the summaries are there.
