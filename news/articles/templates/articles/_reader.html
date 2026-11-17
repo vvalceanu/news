@@ -1,12 +1,12 @@
-{# One summary: the German as clickable words (from reading.build), the English beside it. Clicking a word swaps the English for that word's details (static/articles/reader.js). The words sit on one line in the template so no stray whitespace gets between them. #}
+{# One text (a summary or the original): the German as clickable words (from reading.build), the English beside it, or a hint if there is none. Clicking a word swaps the English for that word's details (static/articles/reader.js). The words sit on one line in the template so no stray whitespace gets between them. #}
 {% with details_id="reader-details-"|add:level panel_id="word-panel-"|add:level %}
-<div class="summary-pair reader" data-details="{{ details_id }}" data-ask-url="{% url 'articles:ask_word' article.pk level 0 %}">
+<div class="summary-pair reader{% if not english %} reader-solo{% endif %}" data-details="{{ details_id }}" data-ask-url="{% url 'articles:ask_word' article.pk level 0 %}">
   <div class="summary-de" lang="de">
     {% if reader.paragraphs %}{% for paragraph in reader.paragraphs %}<p>{% for token in paragraph %}{% if token.clickable %}<span class="w" data-i="{{ token.i }}" aria-controls="{{ panel_id }}">{{ token.text }}</span>{% else %}{{ token.text }}{% endif %}{{ token.ws }}{% endfor %}</p>{% endfor %}
     {% else %}{{ german|linebreaks }}{% endif %}
   </div>
   <div class="reader-side">
-    <div class="summary-en" lang="en">{{ english|linebreaks }}</div>
+    <div class="summary-en" lang="en">{% if english %}{{ english|linebreaks }}{% else %}<p class="reader-hint">Click a word to see what it means.</p>{% endif %}</div>
     <aside class="word-panel" id="{{ panel_id }}" lang="en" aria-label="Word details" hidden>
       <button type="button" class="word-panel-close" aria-label="Close word details, back to the English">×</button>
       <div class="word-panel-body"></div>

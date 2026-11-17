@@ -1,12 +1,12 @@
 from django.core.management.base import BaseCommand, CommandError
 
 from articles import tasks
-from articles.models import Article
+from articles.models import READER_TEXTS, Article
 
 
 class Command(BaseCommand):
     help = (
-        "Split articles' German summaries into words with lemmas (spaCy + simplemma, in a "
+        "Split articles' German summaries and original bodies into words with lemmas (spaCy + simplemma, in a "
         "subprocess). No API calls, so it's free to rerun. Overwrites the stored words."
     )
 
@@ -20,10 +20,10 @@ class Command(BaseCommand):
                 raise CommandError(f"No article {article_id}.")
             if not tasks.analyze_words(article_id):
                 failed.append(article_id)
-                self.stdout.write(f"Article {article_id}: not analyzed (no summaries, or the analysis failed; see the log)")
+                self.stdout.write(f"Article {article_id}: not analyzed (no text, or the analysis failed; see the log)")
                 continue
             article = Article.objects.get(pk=article_id)
-            for level in ("a2", "b1"):
+            for level in READER_TEXTS:
                 words = getattr(article, f"words_{level}")
                 lemmas = [w for w in words if w["lemma"]]
                 unknown = sorted({w["lemma"] for w in lemmas if not w["known"]})

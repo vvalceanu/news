@@ -1,7 +1,7 @@
-{# Debug view of one summary: the text as Claude wrote it (to check the clickable rendering against), and its words (articles/words_subprocess.py) with their dictionary matches (dictionary/lookup.py). Every token, so the text can be read down the table; numbers and punctuation have no lemma (nothing to look up). # is the token's index, which `verb` points to. #}
+{# Debug view of one text: as analyzed, i.e. the summary as Claude wrote it or the original as plain text (to check the clickable rendering against), and its words (articles/words_subprocess.py) with their dictionary matches (dictionary/lookup.py). Every token, so the text can be read down the table; numbers and punctuation have no lemma (nothing to look up). # is the token's index, which `verb` points to. #}
 <details class="words-debug">
   <summary lang="en">Debug</summary>
-  <h3 lang="en">Summary as written</h3>
+  <h3 lang="en">Text as analyzed</h3>
   <div class="words-debug-text" lang="de">{{ german|linebreaks }}</div>
   {% if rows %}
   <h3 lang="en">Words</h3>

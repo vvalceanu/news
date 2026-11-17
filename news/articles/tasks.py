@@ -12,8 +12,8 @@ from django.utils import timezone
 from django_q.tasks import async_task
 
 from . import deep_dive as dd
-from . import translation, words
-from .models import Article, WordQuestion
+from . import body, translation, words
+from .models import READER_TEXTS, Article, WordQuestion
 from .sources import NewsSource, get_source
 from .translation import anthropic_client
 
@@ -186,14 +186,19 @@ def _summarize_level(client, article, markdown: str, level: str):
 
 
 def analyze_words(article_id: int) -> bool:
-    """Split the article's German summaries into words with lemmas. Returns whether it ran.
+    """Split the article's German summaries and its original body into words with lemmas.
+    Returns whether it ran.
 
     Free (no API calls), so `manage.py analyze_words` can redo it any time. A failure leaves
-    the words empty and is only logged: the summaries are still shown.
+    the words empty and is only logged: the texts are still shown.
     """
     article = Article.objects.get(pk=article_id)
-    texts = {level: getattr(article, f"summary_{level}") for level in ("b1", "a2")}
-    texts = {level: text for level, text in texts.items() if text}
+    texts = {
+        "b1": article.summary_b1,
+        "a2": article.summary_a2,
+        "original": body.text(article.content),
+    }
+    texts = {key: text for key, text in texts.items() if text}
     if not texts:
         return False
     try:
@@ -201,7 +206,7 @@ def analyze_words(article_id: int) -> bool:
     except words.AnalysisFailed as exc:
         logger.warning("Word analysis failed for article %s: %s", article_id, exc)
         return False
-    Article.objects.filter(pk=article_id).update(**{f"words_{level}": analyzed.get(level, []) for level in ("b1", "a2")})
+    Article.objects.filter(pk=article_id).update(**{f"words_{key}": analyzed.get(key, []) for key in READER_TEXTS})
     return True
 
 

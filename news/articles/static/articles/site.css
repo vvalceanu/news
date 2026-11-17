@@ -317,6 +317,13 @@ pre {
   color: var(--gloss);
 }
 
+/* The original has no English: the side column says what it's for. */
+.summary-en .reader-hint {
+  font-size: 1rem;
+  font-style: italic;
+  color: var(--note);
+}
+
 /* The reader: every German word is clickable, but reads as plain running text. A word lights
    up faintly under the pointer; the chosen word, and both halves of a split verb
    ("teilte … mit"), get the highlighter. box-shadow widens the mark without moving text. */
@@ -509,6 +516,22 @@ pre {
 
   .summary-de .w {
     scroll-margin: 4rem 0 calc(55vh + 1rem);
+  }
+
+  /* Without English (the original) there's nothing beside the German but the hint, and the
+     details are a sheet anyway: the German takes the full width. */
+  .reader-solo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reader-solo .reader-side {
+    padding: 0;
+    border: 0;
+  }
+
+  .reader-solo .summary-en,
+  .reader-solo.is-open .summary-en {
+    display: none;
   }
 }
 

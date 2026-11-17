@@ -81,6 +81,13 @@ def test_the_sentence_is_cut_at_sentence_ends_and_blank_lines():
     assert word_questions.sentence(WORDS, 13) == "Neu"
 
 
+def test_a_long_sentence_is_cut_around_the_word():
+    words = [_w(f"w{i}") for i in range(500)]
+    text = word_questions.sentence(words, 250)
+
+    assert text.split() == [f"w{i}" for i in range(250 - word_questions.SENTENCE_REACH, 251 + word_questions.SENTENCE_REACH)]
+
+
 def test_a_separable_verb_is_asked_about_whole():
     assert word_questions.asked_word(WORDS, 2) == "teilte … mit"
     assert word_questions.asked_word(WORDS, 1) == "Firma"
@@ -201,9 +208,26 @@ def test_a_particle_asks_about_its_verb(client, haiku, queued):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("level, index", [("b1", 6), ("b1", 9), ("b1", 99), ("a2", 0), ("c1", 0)])
-def test_only_words_of_a_summary_can_be_asked_about(client, queued, level, index):
-    # 6 is ".", 9 is "373", 99 doesn't exist, A2 has no words, C1 isn't a level.
+def test_words_of_the_original_can_be_asked_about_too(client, haiku, queued):
+    article = _done_article(words_original=WORDS)
+
+    assert _ask(client, article, 1, level="original").status_code == 202
+    _work(queued)
+
+    assert '"Die Firma teilte die Zahlen mit."' in haiku.requests[0]["messages"][0]["content"]
+    assert _poll(client, article, 1, level="original").json()["status"] == "done"
+    question = WordQuestion.objects.get()
+    assert (question.level, question.index, question.word) == ("original", 1, "Firma")
+    # Its saved answer shows in the original's reader only.
+    page = client.get(f"/articles/{article.pk}/").content.decode()
+    original = json.loads(re.search(r'id="reader-details-original"[^>]*>(.*?)</script>', page).group(1))
+    assert original["words"]["1"]["answer"] == "It means: announced."
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("level, index", [("b1", 6), ("b1", 9), ("b1", 99), ("a2", 0), ("original", 0), ("c1", 0)])
+def test_only_words_of_a_reader_text_can_be_asked_about(client, queued, level, index):
+    # 6 is ".", 9 is "373", 99 doesn't exist, A2 and the original have no words, C1 isn't a text.
     article = _article()
     assert _ask(client, article, index, level=level).status_code == 404
     assert _poll(client, article, index, level=level).status_code == 404

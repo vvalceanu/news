@@ -1,5 +1,10 @@
 from django.db import models
 
+# The texts of an article the reader shows as clickable words: the two summaries and the
+# original body. Each key names its words field (`words_<key>`) and, for "Ask AI", its
+# `WordQuestion.level`.
+READER_TEXTS = ("a2", "b1", "original")
+
 
 class Article(models.Model):
     """Our own copy of a news entry. Everything after the sweep reads this table, never Miniflux."""
@@ -37,6 +42,9 @@ class Article(models.Model):
     # articles/words_subprocess.py). Empty until analyzed, or if the analysis failed.
     words_b1 = models.JSONField(default=list, blank=True)
     words_a2 = models.JSONField(default=list, blank=True)
+    # The original body the same way, as plain text (articles/body.py: the Markdown the deep
+    # dive sends Sonnet, without its markup). Analyzed together with the summaries.
+    words_original = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["-published_at"]
@@ -48,7 +56,7 @@ class Article(models.Model):
 class WordQuestion(models.Model):
     """Haiku's answer to "what does this word mean in this sentence?", asked from the reader.
 
-    One row per word of a summary (the browser sends only the word's position; the word and its
+    One row per word of a reader text (a summary or the original; the browser sends only the word's position; the word and its
     sentence come from our stored words). The displayer marks it WAITING and queues the call;
     the worker answers it (DONE) or gives up (FAILED, can be asked again; its cost still counts).
     Everyone who opens the word later sees the saved answer.
@@ -60,8 +68,8 @@ class WordQuestion(models.Model):
         FAILED = "failed", "Failed"
 
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="word_questions")
-    level = models.CharField(max_length=2)  # "a2" or "b1"
-    index = models.PositiveIntegerField()  # the word's position in words_a2 / words_b1
+    level = models.CharField(max_length=10)  # which text: one of READER_TEXTS
+    index = models.PositiveIntegerField()  # the word's position in that text's words
     word = models.TextField()  # as asked, e.g. "teilte … mit"
     sentence = models.TextField()
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.WAITING)

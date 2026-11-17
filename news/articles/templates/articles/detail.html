@@ -37,6 +37,13 @@
       {% include "articles/_reader.html" with reader=readers.b1 level="b1" german=article.summary_b1 english=article.summary_b1_en %}
     {% else %}<p class="meta" lang="en">No summary.</p>{% endif %}
   </section>
+  {% if readers.original.paragraphs %}
+  <section class="summary">
+    <h2>Original</h2>
+    {# No English for the original: the side column only shows a clicked word's details. #}
+    {% include "articles/_reader.html" with reader=readers.original level="original" german=original_text english="" %}
+  </section>
+  {% endif %}
 {% elif article.deep_dive_status %}
   <p class="notice notice-working" lang="en"><span class="spinner" aria-hidden="true"></span>Simplifying the article. This page reloads automatically.</p>
 {% else %}
@@ -47,9 +54,11 @@
   </form>
 {% endif %}
 
+{% if article.deep_dive_status != "done" or not readers.original.paragraphs %}
+{# Before the deep dive (or if the word analysis failed), the body as Sonnet gets it (Markdown), rendered and sanitized. #}
 <details class="raw">
   <summary lang="en">Original text</summary>
-  {# The body as the deep dive sends it to Claude (Markdown), rendered and sanitized. #}
   <div class="original">{{ article.content|article_body }}</div>
 </details>
+{% endif %}
 {% endblock %}

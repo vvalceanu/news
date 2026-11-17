@@ -6,7 +6,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from django_ratelimit.decorators import ratelimit
 
 from . import reading, tasks, word_questions
-from .models import Article, WordQuestion
+from .models import READER_TEXTS, Article, WordQuestion
 from .sources import SourceUnavailable, get_source
 
 logger = logging.getLogger(__name__)
@@ -33,15 +33,15 @@ def detail(request, article_id: int):
 
 
 def _detail_context(article: Article, **extra) -> dict:
-    # Each summary as clickable words, with each word's details (grammar, dictionary).
+    # Each summary, and the original, as clickable words with each word's details (grammar, dictionary).
     answers = {(q.level, q.index): q.answer for q in WordQuestion.objects.filter(article=article).exclude(answer="")}
     readers = {
-        level: reading.build(
-            getattr(article, f"words_{level}"), {i: a for (lvl, i), a in answers.items() if lvl == level}
-        )
-        for level in ("a2", "b1")
+        key: reading.build(getattr(article, f"words_{key}"), {i: a for (k, i), a in answers.items() if k == key})
+        for key in READER_TEXTS
     }
-    return {"article": article, "readers": readers, **extra}
+    # The original as analyzed (plain text), for its debug section.
+    original_text = "".join(w["text"] + w["ws"] for w in article.words_original)
+    return {"article": article, "readers": readers, "original_text": original_text, **extra}
 
 
 def _deep_dive_rate(group, request):
@@ -68,9 +68,10 @@ def _ask_word_rate(group, request):
 @require_http_methods(["GET", "POST"])
 @ratelimit(key="ip", rate=_ask_word_rate, method="POST", block=False)
 def ask_word(request, article_id: int, level: str, index: int):
-    """"Ask AI" in the reader. POST asks what word `index` of a summary means in its sentence;
-    the worker answers, and the reader polls with GET until it has. The browser names the word
-    only by position; word_questions takes the word and sentence from our data."""
+    """"Ask AI" in the reader. POST asks what word `index` of a text (`level`: a summary or the
+    original) means in its sentence; the worker answers, and the reader polls with GET until it
+    has. The browser names the word only by position; word_questions takes the word and sentence
+    from our data."""
     article = get_object_or_404(Article, pk=article_id)
     if getattr(request, "limited", False):
         return JsonResponse({"error": "Too many questions. Please try again later."}, status=429)

@@ -1,11 +1,13 @@
-"""Asking Haiku what a word of a summary means in its sentence ("Ask AI" in the reader).
+"""Asking Haiku what a word of a summary, or of the original, means in its sentence ("Ask AI").
 
 The displayer validates the question and queues it (`request_answer`); the worker, which has the
 API key, asks Haiku (`answer_question`); the reader polls `current_state` until it's answered.
 
-The browser only says which word (article, level, position). The word and its sentence are
-taken from our own stored words, so nobody can send Haiku a text of their own: the only text it
-ever sees is a summary Sonnet wrote. The answer is plain text, escaped wherever it's shown.
+The browser only says which word (article, text, position). The word and its sentence are
+taken from our own stored words, so nobody can send Haiku a text of their own: it only ever sees
+a summary Sonnet wrote or a sentence of the article's body, which Sonnet already got whole.
+The body is feed text, so the system prompt tells Haiku not to follow it, and the answer is plain
+text, escaped wherever it's shown.
 """
 
 import logging
@@ -21,7 +23,7 @@ from django.utils import timezone
 from django_q.tasks import async_task
 
 from . import tasks
-from .models import Article, WordQuestion
+from .models import READER_TEXTS, Article, WordQuestion
 from .translation import anthropic_client
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,9 @@ SYSTEM_PROMPT = (
 )
 # Tokens that end a sentence: STTS tag "$." is . ! ? : ;
 SENTENCE_END_TAG = "$."
+# At most this many tokens (words, spaces, punctuation) on each side of the word. Summary
+# sentences are far shorter; this bounds the cost of a feed paragraph without full stops.
+SENTENCE_REACH = 80
 
 CALL_ERRORS = (anthropic.APIError,)
 
@@ -68,12 +73,12 @@ def _ends_sentence(word: dict) -> bool:
 
 
 def sentence(words: list[dict], index: int) -> str:
-    """The sentence around words[index], as written."""
+    """The sentence around words[index], as written (at most SENTENCE_REACH tokens either side)."""
     start = index
-    while start > 0 and not _ends_sentence(words[start - 1]):
+    while start > max(0, index - SENTENCE_REACH) and not _ends_sentence(words[start - 1]):
         start -= 1
     end = index
-    while end < len(words) - 1 and not _ends_sentence(words[end]):
+    while end < min(len(words) - 1, index + SENTENCE_REACH) and not _ends_sentence(words[end]):
         end += 1
     return "".join(w["text"] + w["ws"] for w in words[start : end + 1]).strip()
 
@@ -124,9 +129,9 @@ class Refused(Exception):
 
 
 def _target(article, level: str, index: int) -> tuple[list[dict], int]:
-    """The summary's words and the position of the word to ask about (a separable particle is
-    asked about as its verb). Raises Refused for anything that isn't a word of a summary."""
-    if article.deep_dive_status != Article.DeepDive.DONE or level not in ("a2", "b1"):
+    """The text's words and the position of the word to ask about (a separable particle is
+    asked about as its verb). Raises Refused for anything that isn't a word of a reader text."""
+    if article.deep_dive_status != Article.DeepDive.DONE or level not in READER_TEXTS:
         raise Refused("No such word.", 404)
     words = getattr(article, f"words_{level}")
     if not 0 <= index < len(words) or not words[index].get("lemma"):
@@ -147,7 +152,7 @@ def state(question: WordQuestion | None) -> dict:
 
 
 def request_answer(article, level: str, index: int) -> dict:
-    """Ask about word `index` of the article's `level` summary: the saved answer if there is one;
+    """Ask about word `index` of the article's `level` text (a summary or the original): the saved answer if there is one;
     otherwise queue the question for the worker (unless it's already waiting). Returns `state`.
     Raises Refused."""
     words, index = _target(article, level, index)

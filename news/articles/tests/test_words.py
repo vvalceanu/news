@@ -136,7 +136,7 @@ def _done_article(**fields):
 
 @pytest.mark.django_db
 def test_command_analyzes_an_existing_article():
-    article = _done_article()
+    article = _done_article(content="<h2>Stellenabbau</h2><p>Der Konzern <b>baut</b> 373 Stellen ab.</p>")
     out = StringIO()
 
     call_command("analyze_words", article.pk, stdout=out)
@@ -144,7 +144,10 @@ def test_command_analyzes_an_existing_article():
     article.refresh_from_db()
     assert "mitteilen" in [w["lemma"] for w in article.words_b1]
     assert "Stelle" in [w["lemma"] for w in article.words_a2]
+    assert "".join(w["text"] + w["ws"] for w in article.words_original) == "Stellenabbau\n\nDer Konzern baut 373 Stellen ab."
+    assert "abbauen" in [w["lemma"] for w in article.words_original]
     assert "separable verbs: mitteilen" in out.getvalue()
+    assert "ORIGINAL: 6 words" in out.getvalue()  # "373" has no lemma
 
 
 @pytest.mark.django_db
@@ -190,3 +193,38 @@ def test_analyze_words_task_overwrites_with_fresh_words(monkeypatch):
 
     article.refresh_from_db()
     assert article.words_b1 == [{"text": "neu"}]
+
+
+def _word(text, ws=" ", lemma=None, tag=""):
+    return {"text": text, "ws": ws, "lemma": text.lower() if lemma is None else lemma, "verb": None,
+            "known": True, "pos": "", "tag": tag, "dep": "", "morph": ""}
+
+
+@pytest.mark.django_db
+def test_page_shows_the_original_as_a_reader_once_analyzed(client):
+    article = _done_article(
+        content="<p>Die <b>Brücke</b> ist offen.</p>",
+        words_original=[_word("Die"), _word("Brücke"), _word("ist"), _word("offen", ws=""), _word(".", ws="", lemma="", tag="$.")],
+    )
+    body = client.get(f"/articles/{article.pk}/").content.decode()
+
+    assert "<h2>Original</h2>" in body
+    assert 'data-ask-url="/articles/%d/words/original/0/ask/"' % article.pk in body
+    assert '<span class="w" data-i="1" aria-controls="word-panel-original">Brücke</span>' in body
+    assert 'id="reader-details-original"' in body
+    assert "Click a word to see what it means." in body  # no English for the original
+    assert body.count('class="words-debug"') == 3
+    assert 'class="raw"' not in body  # the reader replaces the plain rendering
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("status", ["", "done"])
+def test_page_shows_the_original_rendered_until_it_is_analyzed(client, status):
+    article = _done_article(content="<p>Die <b>Brücke</b> ist offen.</p>")
+    Article.objects.filter(pk=article.pk).update(deep_dive_status=status)
+
+    body = client.get(f"/articles/{article.pk}/").content.decode()
+
+    assert '<details class="raw">' in body
+    assert "<p>Die <strong>Brücke</strong> ist offen.</p>" in body
+    assert "<h2>Original</h2>" not in body

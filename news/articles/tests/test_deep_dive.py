@@ -126,15 +126,18 @@ def test_deep_dive_writes_both_levels_with_one_sonnet_call_each():
 
 
 @pytest.mark.django_db
-def test_deep_dive_then_analyzes_the_words_of_both_summaries(analyzed):
+def test_deep_dive_then_analyzes_the_words_of_both_summaries_and_the_original(analyzed):
     article = _queued()
 
     tasks.deep_dive(article.pk, FakeAnthropic())
 
-    assert analyzed == [{"b1": "Zusammenfassung B1", "a2": "Zusammenfassung A2"}]
+    # The original as plain text: the Markdown Sonnet got, without its markup.
+    original = "Neue Brücke\n\nDie Brücke ist offen."
+    assert analyzed == [{"b1": "Zusammenfassung B1", "a2": "Zusammenfassung A2", "original": original}]
     article = _reload(article)
     assert article.words_b1 == [{"text": "Zusammenfassung B1", "ws": "", "lemma": "lemma b1"}]
     assert article.words_a2 == [{"text": "Zusammenfassung A2", "ws": "", "lemma": "lemma a2"}]
+    assert article.words_original == [{"text": original, "ws": "", "lemma": "lemma original"}]
 
 
 @pytest.mark.django_db
@@ -150,17 +153,21 @@ def test_a_failed_word_analysis_leaves_the_words_empty_and_the_article_done(monk
     article = _reload(article)
     assert article.deep_dive_status == "done"
     assert article.summary_b1 == "Zusammenfassung B1"
-    assert (article.words_b1, article.words_a2) == ([], [])
+    assert (article.words_b1, article.words_a2, article.words_original) == ([], [], [])
 
 
 @pytest.mark.django_db
-def test_word_analysis_skips_failed_levels_and_articles_without_summaries(analyzed):
-    article = _queued()
+def test_word_analysis_skips_failed_levels_and_articles_without_any_text(analyzed):
+    article = _queued(content="")
     tasks.deep_dive(article.pk, FakeAnthropic(lambda level: _reply(stop_reason="refusal") if level == "A2" else _reply()))
 
-    assert analyzed == [{"b1": "Die Brücke ist offen."}]
+    assert analyzed == []  # no body: nothing to summarize, nothing to analyze
+    article = _queued(miniflux_id=2)
+    tasks.deep_dive(article.pk, FakeAnthropic(lambda level: _reply(stop_reason="refusal") if level == "A2" else _reply()))
+
+    assert analyzed == [{"b1": "Die Brücke ist offen.", "original": "Neue Brücke\n\nDie Brücke ist offen."}]
     assert _reload(article).words_a2 == []
-    assert tasks.analyze_words(_article(miniflux_id=2).pk) is False
+    assert tasks.analyze_words(_article(miniflux_id=3, content="").pk) is False
     assert len(analyzed) == 1
 
 
